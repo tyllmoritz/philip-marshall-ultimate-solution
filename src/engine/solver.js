@@ -32,6 +32,44 @@ export function mergeTurns(moves) {
   return out;
 }
 
+const QUARTERS = (m) => (m.length === 1 ? 1 : m[1] === "2" ? 2 : 3);
+const SUFFIX = ["", "", "2", "'"];
+const KIND_RANK = { edge: 3, corner: 3, turns: 2, setup: 1, undo: 1 };
+
+/**
+ * Cancel turns across all boundaries (series/setup/undo/steps), also reaching
+ * past turns of the opposite face (R L R' = L), then regroup into steps/parts.
+ */
+export function optimizeSteps(steps) {
+  const stack = [];
+  steps.forEach((step, si) => step.parts.forEach((part) => part.moves.forEach((m) => {
+    const tok = { m, kind: part.kind, act: part.act, step: si };
+    for (let j = stack.length - 1; j >= 0; j--) {
+      const f = stack[j].m[0];
+      if (f === m[0]) {
+        const q = (QUARTERS(stack[j].m) + QUARTERS(m)) % 4;
+        const kind = KIND_RANK[stack[j].kind] > KIND_RANK[tok.kind] ? stack[j].kind : tok.kind;
+        if (q === 0) stack.splice(j, 1);
+        else stack[j] = { ...tok, m: m[0] + SUFFIX[q], kind, act: kind === stack[j].kind ? stack[j].act : tok.act };
+        return;
+      }
+      if (OPPOSITE[f] !== m[0]) break;
+    }
+    stack.push(tok);
+  })));
+  return steps.map((step, si) => {
+    const parts = [];
+    for (const t of stack.filter((x) => x.step === si)) {
+      const kind = t.kind === "undo" ? "setup" : t.kind;
+      const last = parts[parts.length - 1];
+      const sameGroup = last && last.kind === kind && (kind === "setup" || kind === "turns" || last.act === t.act);
+      if (sameGroup) last.moves.push(t.m);
+      else parts.push({ kind, moves: [t.m], act: t.act });
+    }
+    return { name: step.name, parts, count: parts.reduce((n, p) => n + p.moves.length, 0) };
+  });
+}
+
 const OPPOSITE = { U: "D", D: "U", F: "B", B: "F", R: "L", L: "R" };
 function setupSequences(maxLen) {
   const turns = [];
@@ -354,8 +392,9 @@ export class MarshallSolver {
 
   solveOriented(scrambleMoves) {
     const start = this.run(this.solvedFlat, scrambleMoves);
-    const steps = [];
-    const log = (name, parts) => steps.push({ name, parts, count: mergeTurns(parts.flatMap((p) => p.moves)).length });
+    const rawSteps = [];
+    this.actionId = 0;
+    const log = (name, parts) => rawSteps.push({ name, parts });
 
     // 1. cross
     const c = this.solveCross(start);
@@ -379,18 +418,20 @@ export class MarshallSolver {
     s = r5.state;
 
     if (flatKey(s) !== flatKey(this.solvedFlat)) throw new Error("internal error: cube not solved");
-    const all = mergeTurns(steps.flatMap((st) => st.parts.flatMap((p) => p.moves)));
+    const steps = optimizeSteps(rawSteps);
+    const all = steps.flatMap((st) => st.parts.flatMap((p) => p.moves));
     return { steps, total: all.length, solution: all, finalState: s };
   }
 
   actionsToParts(actions, kind) {
     const parts = [];
     for (const a of actions) {
-      if (a.pre.length && !a.series.length) { parts.push({ kind: "turns", moves: a.pre }); continue; }
-      if (a.pre.length) parts.push({ kind: "turns", moves: a.pre });
-      if (a.setup.length) parts.push({ kind: "setup", moves: a.setup });
-      parts.push({ kind, moves: a.series });
-      if (a.setup.length) parts.push({ kind: "undo", moves: invertAlg(a.setup) });
+      const act = this.actionId++;
+      if (a.pre.length && !a.series.length) { parts.push({ kind: "turns", moves: a.pre, act }); continue; }
+      if (a.pre.length) parts.push({ kind: "turns", moves: a.pre, act });
+      if (a.setup.length) parts.push({ kind: "setup", moves: a.setup, act });
+      parts.push({ kind, moves: a.series, act });
+      if (a.setup.length) parts.push({ kind: "undo", moves: invertAlg(a.setup), act });
     }
     return parts;
   }

@@ -99,7 +99,6 @@ const KIND_LABEL = { edge: "edge series", corner: "corner series", setup: "setup
 
 function render({ scramble, result }) {
   $("result").hidden = false;
-  $("viewbar").hidden = false;
   $("total").textContent = `— ${result.total} moves`;
   $("plain").textContent = result.solution.join(" ");
   const ol = $("steps");
@@ -130,8 +129,7 @@ function render({ scramble, result }) {
   });
 }
 
-$("view-scramble").addEventListener("click", () => current && show(current.scramble, []));
-$("view-full").addEventListener("click", () => {
+$("plain").addEventListener("click", () => {
   if (current?.result) { show(current.scramble, current.result.solution); player.play(); }
 });
 

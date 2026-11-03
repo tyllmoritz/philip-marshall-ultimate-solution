@@ -26,10 +26,6 @@
 
     <section class="panel player-panel">
       <div id="player"></div>
-      <div class="row" id="viewbar" hidden>
-        <button id="view-scramble" type="button">Scramble</button>
-        <button id="view-full" type="button" class="primary">Full solution</button>
-      </div>
     </section>
 
     <section class="panel" id="result" hidden>
@@ -41,8 +37,8 @@
         <span class="chip turns">plain turns</span>
       </p>
       <ol id="steps"></ol>
-      <h3>Plain solution</h3>
-      <code id="plain"></code>
+      <h3>Full solution</h3>
+      <button id="plain" type="button" class="full" title="Play the full solution"></button>
     </section>
 
     <section class="panel about">
