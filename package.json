@@ -1,0 +1,23 @@
+{
+  "name": "marshall-solver",
+  "version": "1.0.0",
+  "description": "Rubik's Cube solver implementing Philip Marshall's method",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "node scripts/test.mjs 15"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cubing": "^0.53.3"
+  },
+  "devDependencies": {
+    "vite": "^8.3.5"
+  },
+  "type": "module",
+  "private": true
+}
