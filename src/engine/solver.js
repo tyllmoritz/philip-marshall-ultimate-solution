@@ -180,7 +180,7 @@ export class MarshallSolver {
     this.solvedFlat = flatSolved();
     this.crossDist = null;
     this.edgeTable = this.buildTable(EDGE_SERIES);
-    this.cornerTable = this.buildTable(CORNER_SERIES);
+    this.cornerTable = this.buildTable(CORNER_SERIES, true);
     this.buildCrossTable();
   }
 
@@ -191,10 +191,11 @@ export class MarshallSolver {
   }
 
   /** All distinct transformations of  P S series S' , with their cheapest spelling. */
-  buildTable(base) {
+  buildTable(base, anyFace = false) {
     const baseMoves = parseAlg(base);
     const variants = new Map();
-    const rotations = ROTATIONS.map((rot) => ({ rot, word: rotationWord(rot) })).sort((a, b) => a.word.length - b.word.length);
+    // only turns around the vertical axis (y): white stays on top, yellow at the bottom
+    const rotations = ROTATIONS.filter((rot) => rot.U === "U").map((rot) => ({ rot, word: rotationWord(rot) })).sort((a, b) => a.word.length - b.word.length);
     for (const { rot, word } of rotations) {
       for (const canon of [baseMoves, invertAlg(baseMoves)]) {
         const alg = mapAlg(rot, canon);
@@ -202,7 +203,7 @@ export class MarshallSolver {
         if (!variants.has(k)) variants.set(k, { alg, canon, word });
       }
     }
-    const setups = setupSequences(2);
+    const setups = setupSequences(anyFace ? 2 : 3);
     const conj = new Map();
     for (const v of variants.values()) {
       const series = v.alg;
