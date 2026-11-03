@@ -1,11 +1,11 @@
 :root {
   --bg: #f6f5f1; --panel: #fff; --ink: #1d1d1b; --muted: #6b6a64; --line: #e2e0d8;
-  --accent: #1b5e9b; --edge: #1b5e9b; --corner: #b4501a; --setup: #8a8980; --err: #b3261e;
+  --accent: #1b5e9b; --edge: #1b5e9b; --corner: #b4501a; --setup: #8a8980; --f2l: #2e7d32; --err: #b3261e;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root { --bg: #151514; --panel: #1e1e1c; --ink: #ecebe5; --muted: #a09f97; --line: #343431;
-    --accent: #6db0ee; --edge: #6db0ee; --corner: #f0a070; --setup: #8d8c84; --err: #ff8a80; color-scheme: dark; }
+    --accent: #6db0ee; --edge: #6db0ee; --corner: #f0a070; --setup: #8d8c84; --f2l: #6fcf80; --err: #ff8a80; color-scheme: dark; }
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 system-ui, sans-serif; padding-inline: 16px; }
@@ -38,6 +38,7 @@ button.full::before { content: "\25B6  "; color: var(--accent); }
 .legend { margin: 0 0 8px; display: flex; flex-wrap: wrap; gap: 6px; font-size: .85rem; }
 .chip { display: inline-block; padding: 1px 8px; margin: 2px 0; border-radius: 6px; border: 1px solid currentColor; font: 14px ui-monospace, monospace; }
 .legend .chip { font: inherit; font-size: .8rem; }
+.chip.f2l { color: var(--f2l); }
 .chip.edge { color: var(--edge); } .chip.corner { color: var(--corner); }
 .chip.setup, .chip.undo { color: var(--setup); border-style: dashed; } .chip.turns { color: var(--ink); }
 #steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }

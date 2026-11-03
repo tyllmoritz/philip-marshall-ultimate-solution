@@ -20,7 +20,17 @@ cheapest table entry that places more pieces without disturbing finished ones; i
 finishes with a two-entry meet-in-the-middle lookup. The cross search also tracks quarter-turn parity,
 since the series are even permutations. All six cross faces are tried and the shortest result is kept.
 
-**Partial F2L option:** after the three center-section edges are placed, the three corners that pair with them are placed too (cross + 3 pairs). Step 3 then solves the remaining 5 edges using only series that leave those corners alone (it falls back to the plain method if that is impossible for an orientation). Costs about 5 extra moves on average.
+**Partial F2L option:** cross + 3 corner-edge pairs in steps 1-2, then the remaining 5 edges with series that leave those corners alone. The pairs come from the standard F2L insertion algorithms ([rubiksplace.com](https://www.rubiksplace.com/speedcubing/F2L-algorithms/), `src/engine/f2l.js`: every algorithm in all four slots, mirrored, with pre-alignment turns and short extraction moves), or from Marshall's own edge + corner series, whichever is shorter.
+
+## Performance
+
+`node scripts/profile.mjs [count] [f2l]` times each phase over random scrambles. Main costs and what was done:
+
+- Every table entry carries a bitmask of the pieces it leaves untouched, so "keeps finished pieces?" is one bit test instead of composing a state.
+- Gains and two-step lookaheads are evaluated by index lookups on only the relevant pieces.
+- The meet-in-the-middle finish uses integer hashes of the piece part instead of string keys.
+- The cross table is a flat integer BFS; table construction hashes states numerically.
+- Typical solve: ~0.25-0.35 s (was ~1.4-2.7 s). The tables (~1.7 s) are built once in the web worker at page load.
 
 This is an independent implementation (average about 57-60 moves), not a transcription of the original write-up.
 
