@@ -18,7 +18,7 @@ Steps: 1. cross, 2. center-section edges, 3. top edges, 4. five corners, 5. end 
 (all 24 cube orientations, both directions, setups up to 2 turns). Each step repeatedly applies the
 cheapest table entry that places more pieces without disturbing finished ones; if none exists it
 finishes with a two-entry meet-in-the-middle lookup. The cross search also tracks quarter-turn parity,
-since the series are even permutations. All six cross faces are tried and the shortest result is kept.
+since the series are even permutations. The cross is always built on the top (white) face. Each step ends in its target state (white cross; cross + 3 middle-layer edges; all edges; all edges + at least 5 corners; solved), and turns are only ever cancelled within a step, so playing a step shows exactly that state. A few equally short crosses are tried and the shortest overall solution is kept. `npm test` replays every solution step by step and checks each target.
 
 **Partial F2L option:** cross + 3 corner-edge pairs in steps 1-2, then the remaining 5 edges with series that leave those corners alone. The pairs come from the standard F2L insertion algorithms ([rubiksplace.com](https://www.rubiksplace.com/speedcubing/F2L-algorithms/), `src/engine/f2l.js`: every algorithm in all four slots, mirrored, with pre-alignment turns and short extraction moves), or from Marshall's own edge + corner series, whichever is shorter.
 

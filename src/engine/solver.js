@@ -108,6 +108,7 @@ export function optimizeSteps(steps) {
   steps.forEach((step, si) => step.parts.forEach((part) => part.moves.forEach((m) => {
     const tok = { m, kind: part.kind, act: part.act, step: si };
     for (let j = stack.length - 1; j >= 0; j--) {
+      if (stack[j].step !== si) break; // never move turns between steps: each step must end in its target state
       const f = stack[j].m[0];
       if (f === m[0]) {
         const q = (QUARTERS(stack[j].m) + QUARTERS(m)) % 4;
@@ -317,9 +318,11 @@ export class MarshallSolver {
     return p;
   }
 
-  solveCross(flat) {
+  /** variant picks a different (equally short) cross by rotating the move order. */
+  solveCross(flat, variant = 0) {
     this.buildCrossTable();
-    const names = Object.keys(this.flatMoves);
+    const all = Object.keys(this.flatMoves);
+    const names = all.map((_, i) => all[(i + variant * 5) % all.length]);
     const out = [];
     let s = flat;
     let need = this.edgeParity(flat);
@@ -493,27 +496,19 @@ export class MarshallSolver {
 
   // ---------- full solve ----------
   /** Solve from a scramble given as move list. Returns the best of six cross orientations. */
+  /**
+   * The cross is always built on the top (white) face. Several equally short
+   * crosses lead to different later steps; try a few and keep the shortest solution.
+   */
   solve(scrambleMoves, options = {}) {
     let best = null;
     let firstError = null;
-    // six choices of which face holds the cross: rotations putting each face on U
-    const tops = [];
-    for (const rot of ROTATIONS) if (!tops.some((r) => r.U === rot.U)) tops.push(rot);
-    for (const rot of tops) {
+    let found = 0;
+    for (let variant = 0; variant < 12 && found < 4; variant++) {
       try {
-        const res = this.solveOriented(mapAlg(rot, scrambleMoves), options);
-        // map solution back: inverse rotation
-        const inv = Object.fromEntries(FACES.map((f) => [rot[f], f]));
-        const mapped = {
-          ...res,
-          steps: res.steps.map((st) => ({
-            ...st,
-            parts: st.parts.map((p) => ({ ...p, moves: mapAlg(inv, p.moves) })),
-          })),
-          solution: mapAlg(inv, res.solution),
-          crossFace: inv.U,
-        };
-        if (!best || mapped.total < best.total) best = mapped;
+        const res = this.solveOriented(scrambleMoves, { ...options, variant });
+        found++;
+        if (!best || res.total < best.total) best = { ...res, crossFace: "U" };
       } catch (e) {
         firstError ??= e.message;
       }
@@ -521,14 +516,14 @@ export class MarshallSolver {
     return best ?? { error: firstError };
   }
 
-  solveOriented(scrambleMoves, { f2l = false } = {}) {
+  solveOriented(scrambleMoves, { f2l = false, variant = 0 } = {}) {
     const start = this.run(this.solvedFlat, scrambleMoves);
     const rawSteps = [];
     this.actionId = 0;
     const log = (name, parts) => rawSteps.push({ name, parts });
 
     // 1. cross
-    const c = this.solveCross(start);
+    const c = this.solveCross(start, variant);
     log("The Cross", c.moves.length ? [{ kind: "turns", moves: c.moves }] : []);
     let s = c.state;
 

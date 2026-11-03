@@ -89,8 +89,8 @@ function finish(result) {
     return;
   }
   current.result = result;
-  const pairs = result.f2lPairs ? `, ${result.f2lPairs} F2L pairs` : "";
-  setStatus(`Solved in ${result.total} moves (cross on the ${result.crossFace} face${pairs}).`);
+  const pairs = result.f2lPairs ? ` (cross + ${result.f2lPairs} F2L pairs)` : "";
+  setStatus(`Solved in ${result.total} moves${pairs}.`);
   render(current);
   show(current.scramble, result.solution);
   player.play();
