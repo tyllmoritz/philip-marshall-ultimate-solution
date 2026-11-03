@@ -67,16 +67,13 @@ function mirror(moves) {
   });
 }
 
-// cross on U instead of D: half turn about the R axis
-const X2 = { U: "D", D: "U", F: "B", B: "F", R: "R", L: "L" };
 const map = (rot, moves) => moves.map((m) => rot[m[0]] + m.slice(1));
-const CROSS_UP_ROTATIONS = ROTATIONS.filter((r) => r.U === "U");
+const CROSS_UP_ROTATIONS = ROTATIONS.filter((r) => r.D === "D");
 
 function expand(moves) {
   const out = [];
   for (const base of [moves, mirror(moves)]) {
-    const up = map(X2, base);
-    for (const rot of CROSS_UP_ROTATIONS) out.push(map(rot, up));
+    for (const rot of CROSS_UP_ROTATIONS) out.push(map(rot, base));
   }
   return out;
 }
@@ -86,11 +83,11 @@ export const F2L_ALGS = [...new Set(RAW.split(/[\n|]/).map((s) => s.trim()).filt
   .filter(Boolean)
   .flatMap(expand);
 
-// every side face, both directions, each followed by a turn of the free layer (D, cross is on U)
+// every side face, both directions, each followed by a turn of the free layer (U, cross is on D)
 const GENERIC_EXTRACTIONS = ["R", "L", "F", "B"].flatMap((f) =>
-  [f, f + "'"].flatMap((t) => ["D", "D'", "D2"].map((k) => [t, k, t.endsWith("'") ? f : f + "'"])));
+  [f, f + "'"].flatMap((t) => ["U", "U'", "U2"].map((k) => [t, k, t.endsWith("'") ? f : f + "'"])));
 
 export const F2L_EXTRACTIONS = [...EXTRACTIONS.map(normalizeAlg).flatMap(expand), ...GENERIC_EXTRACTIONS];
 
-/** Pre-alignment turns of the free layer (the D face when the cross is on U). */
-export const F2L_PRE = [[], ["D"], ["D2"], ["D'"]];
+/** Pre-alignment turns of the free layer (the U face when the cross is on D). */
+export const F2L_PRE = [[], ["U"], ["U2"], ["U'"]];

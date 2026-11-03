@@ -52,3 +52,5 @@ Each series is always written in its canonical form (`F R' F' R`, `U R U' L' U R
 wrapped in cube rotations that bring the target pieces to the front and back again. Edge series only use `y` rotations, so white stays on top and yellow at the bottom; the corner series may use any rotation, so the three corners it cycles sit on top.
 Rotations are not counted as moves, and because the series are fixed text, no turns cancel into them
 (solutions are longer than before). The result panel links to the Twizzle editor with a `//` comment on every group of moves.
+
+After step 1 the cube is turned over (`x2`) so yellow is on top; steps 2-5 are solved in that orientation and the last step turns the cube back.

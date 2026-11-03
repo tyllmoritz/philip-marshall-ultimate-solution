@@ -18,8 +18,9 @@ export const CORNER_SERIES = "U R U' L' U R' U' L";
 const PARITY_SEEN = new Uint8Array(12);
 const CROSS_BASE = [1, 24, 576, 13824]; // radix for the four cross edges UF UR UB UL
 const MIDDLE = [8, 9, 10, 11]; // FR FL BR BL
-// top-layer corner that forms an F2L pair with each center-section edge (FR FL BR BL)
-const PAIR_CORNER = { 8: 0, 9: 3, 10: 1, 11: 2 };
+// cross-layer corner (DFR DFL DBR DBL) that forms an F2L pair with each center-section edge (FR FL BR BL);
+// steps 2-5 are solved with the cube turned over, so the cross is on the D face
+const PAIR_CORNER = { 8: 4, 9: 5, 10: 7, 11: 6 };
 const ALL_EDGES = [...Array(12).keys()];
 const ALL_CORNERS = [...Array(8).keys()];
 
@@ -152,6 +153,31 @@ function mergeRotations(stack) {
   }
 }
 
+/**
+ * After the white cross the cube is turned over (x2) so that yellow is on top for the rest of
+ * the solve; steps 2-5 were solved in that orientation, and the last step turns it back.
+ */
+function flipAfterCross(steps) {
+  const addRotation = (parts, at, note) => {
+    const near = parts[at === 0 ? 0 : parts.length - 1];
+    if (near?.kind === "rotate") {
+      const word = at === 0 ? ["x2", ...near.moves] : [...near.moves, "x2"];
+      const moves = rotationWord(rotationOf(word));
+      const rest = at === 0 ? parts.slice(1) : parts.slice(0, -1);
+      if (!moves.length) return rest;
+      return at === 0 ? [{ ...near, moves, note }, ...rest] : [...rest, { ...near, moves, note }];
+    }
+    const part = { kind: "rotate", moves: ["x2"], act: -1, note };
+    return at === 0 ? [part, ...parts] : [...parts, part];
+  };
+  return steps.map((step, i) => {
+    let parts = step.parts;
+    if (i === 1) parts = addRotation(parts, 0, "Turn the cube over: yellow on top");
+    if (i === steps.length - 1) parts = addRotation(parts, 1, "Turn the cube back: white on top");
+    return { ...step, parts };
+  });
+}
+
 const OPPOSITE = { U: "D", D: "U", F: "B", B: "F", R: "L", L: "R" };
 function setupSequences(maxLen) {
   const turns = [];
@@ -178,6 +204,11 @@ export class MarshallSolver {
     this.moves = buildMoveTables(kpuzzle);
     this.flatMoves = Object.fromEntries(Object.entries(this.moves).map(([k, v]) => [k, flatFromMove(v)]));
     this.solvedFlat = flatSolved();
+    const x2 = kpuzzle.moveToTransformation("x2").transformationData;
+    this.flipFlat = flatFromMove({
+      ep: Uint8Array.from(x2.EDGES.permutation), eo: Uint8Array.from(x2.EDGES.orientationDelta),
+      cp: Uint8Array.from(x2.CORNERS.permutation), co: Uint8Array.from(x2.CORNERS.orientationDelta),
+    });
     this.crossDist = null;
     this.edgeTable = this.buildTable(EDGE_SERIES);
     this.cornerTable = this.buildTable(CORNER_SERIES, true);
@@ -543,7 +574,8 @@ export class MarshallSolver {
     // 1. cross
     const c = this.solveCross(start, variant);
     log("The Cross", c.moves.length ? [{ kind: "turns", moves: c.moves }] : []);
-    let s = c.state;
+    // turn the cube over (x2): the rest is solved with yellow on top, the cross layer below
+    let s = compose(compose(this.flipFlat, c.state), this.flipFlat);
 
     const r1State = s;
     const r2 = this.climb(s, this.edgeTable, { target: { edges: MIDDLE, corners: [] }, goal: 3 });
@@ -579,7 +611,7 @@ export class MarshallSolver {
     s = r5.state;
 
     if (flatKey(s) !== flatKey(this.solvedFlat)) throw new Error("internal error: cube not solved");
-    const steps = optimizeSteps(rawSteps);
+    const steps = flipAfterCross(optimizeSteps(rawSteps));
     const all = steps.flatMap((st) => st.parts.flatMap((p) => p.moves));
     return { steps, total: all.length, solution: all, finalState: s, f2lPairs: pairs };
   }

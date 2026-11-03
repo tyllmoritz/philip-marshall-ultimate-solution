@@ -20,7 +20,8 @@ function checkSteps(solver, scr, r, f2l) {
   const played = [...scr];
   for (const step of r.steps) {
     played.push(...step.parts.flatMap((p) => p.moves));
-    masks.push(solvedMask(flatOf(played.join(" "))));
+    // from step 2 on the cube is turned over (x2); turn it back to judge piece positions
+    masks.push(solvedMask(flatOf(played.join(" ") + (masks.length && masks.length < 4 ? " x2" : ""))));
   }
   const canon = { edge: ["F R' F' R", "R' F R F'"], corner: ["U R U' L' U R' U' L", "L' U R U' L U R' U'"] };
   for (const p of r.steps.flatMap((st) => st.parts))

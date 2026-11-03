@@ -108,8 +108,9 @@ function twizzleUrl(scramble, steps) {
     step.parts.forEach((p, k) => {
       const next = step.parts[k + 1]?.kind;
       const prev = step.parts[k - 1]?.kind;
-      let note;
-      if (p.kind === "edge") note = "Edge series: cycles three edge pieces (corners get disturbed)";
+      let note = p.note;
+      if (note) {}
+      else if (p.kind === "edge") note = "Edge series: cycles three edge pieces (corners get disturbed)";
       else if (p.kind === "corner") note = "Corner series: cycles three corners and twists them (edges stay put)";
       else if (p.kind === "f2l") note = "F2L algorithm: insert a corner-edge pair next to the cross";
       else if (p.kind === "rotate") note = SERIES.includes(next) ? "Rotate the cube so the series is done at the front/top" : "Rotate back to the original orientation";
