@@ -45,3 +45,10 @@ npm run build   # static site in dist/
 
 Pushing to `main` deploys `dist/` to GitHub Pages via `.github/workflows/deploy.yml`
 (set Settings -> Pages -> Source to "GitHub Actions").
+
+## Rotations and the Twizzle link
+
+Each series is always written in its canonical form (`F R' F' R`, `U R U' L' U R' U' L`, or the inverse),
+wrapped in cube rotations (`x`, `y`, `z`) that bring the target pieces to the front/top and back again.
+Rotations are not counted as moves, and because the series are fixed text, no turns cancel into them
+(solutions are longer than before). The result panel links to the Twizzle editor with a `//` comment on every group of moves.

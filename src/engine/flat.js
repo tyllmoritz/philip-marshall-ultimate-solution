@@ -61,3 +61,45 @@ export function mapMove(rot, m) {
 export function mapAlg(rot, moves) {
   return moves.map((m) => mapMove(rot, m));
 }
+
+// Whole-cube rotations as written moves (x y z). A rotation maps each position to the
+// face that sits there afterwards, so a series done after it lands on that face.
+const RZ = { R: "U", U: "L", L: "D", D: "R", F: "F", B: "B" };
+const IDENTITY = Object.fromEntries(FACES.map((f) => [f, f]));
+const rotKey = (m) => FACES.map((f) => m[f]).join("");
+const inverseMap = (m) => Object.fromEntries(FACES.map((f) => [m[f], f]));
+const after = (cur, g) => Object.fromEntries(FACES.map((f) => [f, cur[g[f]]]));
+const ROT_TOKENS = (() => {
+  const t = {};
+  for (const [name, g] of [["x", RX], ["y", RY], ["z", RZ]]) {
+    t[name] = g;
+    t[name + "2"] = after(g, g);
+    t[name + "'"] = inverseMap(g);
+  }
+  return t;
+})();
+/** The face relabeling of a rotation written as tokens like ["x", "y'"]. */
+export function rotationOf(tokens) {
+  return tokens.reduce((cur, t) => after(cur, ROT_TOKENS[t]), IDENTITY);
+}
+const ROT_WORDS = (() => {
+  const words = new Map([[rotKey(IDENTITY), []]]);
+  const names = Object.keys(ROT_TOKENS);
+  for (let len = 1; len <= 2; len++) {
+    for (const w of [...words.values()].filter((x) => x.length === len - 1)) {
+      for (const n of names) {
+        const word = [...w, n];
+        const k = rotKey(rotationOf(word));
+        if (!words.has(k)) words.set(k, word);
+      }
+    }
+  }
+  return words;
+})();
+/** Shortest x/y/z spelling of a rotation. */
+export function rotationWord(rot) {
+  return ROT_WORDS.get(rotKey(rot));
+}
+export function invertRotationWord(word) {
+  return word.slice().reverse().map((t) => (t.length === 1 ? t + "'" : t[1] === "2" ? t : t[0]));
+}

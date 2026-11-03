@@ -96,12 +96,37 @@ function finish(result) {
   player.play();
 }
 
-const KIND_LABEL = { edge: "edge series", corner: "corner series", setup: "setup", undo: "undo", turns: "turns" };
+const KIND_LABEL = { edge: "edge series", corner: "corner series", setup: "setup", undo: "undo", turns: "turns", rotate: "cube rotation", f2l: "F2L pair" };
+
+/** Twizzle editor link: the solution with a `// comment` after every group of moves. */
+function twizzleUrl(scramble, steps) {
+  const SERIES = ["edge", "corner"];
+  const lines = ["// Solution: white cross first, series always at the front/top"];
+  steps.forEach((step, i) => {
+    lines.push("", `// Step ${i + 1}: ${step.name}`);
+    if (!step.parts.length) lines.push("// already solved");
+    step.parts.forEach((p, k) => {
+      const next = step.parts[k + 1]?.kind;
+      const prev = step.parts[k - 1]?.kind;
+      let note;
+      if (p.kind === "edge") note = "Edge series: cycles three edge pieces (corners get disturbed)";
+      else if (p.kind === "corner") note = "Corner series: cycles three corners and twists them (edges stay put)";
+      else if (p.kind === "f2l") note = "F2L algorithm: insert a corner-edge pair next to the cross";
+      else if (p.kind === "rotate") note = SERIES.includes(next) ? "Rotate the cube so the series is done at the front/top" : "Rotate back to the original orientation";
+      else if (p.kind === "setup") note = SERIES.includes(next) || next === "rotate" ? "Setup: bring the pieces into position" : "Undo the setup";
+      else note = prev ? "Turn the layer to line up the next pieces" : "Turn the layer to line up the pieces";
+      lines.push(`${p.moves.join(" ")} // ${note}`);
+    });
+  });
+  const q = new URLSearchParams({ alg: lines.join("\n"), "setup-alg": scramble.join(" ") });
+  return "https://alpha.twizzle.net/edit/?" + q;
+}
 
 function render({ scramble, result }) {
   $("result").hidden = false;
   $("total").textContent = `— ${result.total} moves`;
   $("plain").textContent = result.solution.join(" ");
+  $("twizzle").href = twizzleUrl(scramble, result.steps);
   const ol = $("steps");
   ol.replaceChildren();
   let before = [];

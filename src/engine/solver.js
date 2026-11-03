@@ -9,6 +9,7 @@ import {
 import { F2L_ALGS, F2L_EXTRACTIONS, F2L_PRE } from "./f2l.js";
 import {
   N, flatFromMove, flatFromState, flatSolved, compose, flatKey, ROTATIONS, mapAlg,
+  rotationOf, rotationWord, invertRotationWord,
 } from "./flat.js";
 
 export const EDGE_SERIES = "F R' F' R";
@@ -107,8 +108,12 @@ export function optimizeSteps(steps) {
   const stack = [];
   steps.forEach((step, si) => step.parts.forEach((part) => part.moves.forEach((m) => {
     const tok = { m, kind: part.kind, act: part.act, step: si };
+    // series stay exactly as written (front/top) and rotations are barriers, so nothing cancels into them
+    const solid = part.kind === "edge" || part.kind === "corner" || part.kind === "rotate";
+    tok.solid = solid;
+    if (solid) { stack.push(tok); return; }
     for (let j = stack.length - 1; j >= 0; j--) {
-      if (stack[j].step !== si) break; // never move turns between steps: each step must end in its target state
+      if (stack[j].step !== si || stack[j].solid) break; // never move turns between steps: each step must end in its target state
       const f = stack[j].m[0];
       if (f === m[0]) {
         const q = (QUARTERS(stack[j].m) + QUARTERS(m)) % 4;
@@ -121,6 +126,7 @@ export function optimizeSteps(steps) {
     }
     stack.push(tok);
   })));
+  mergeRotations(stack);
   return steps.map((step, si) => {
     const parts = [];
     for (const t of stack.filter((x) => x.step === si)) {
@@ -130,8 +136,20 @@ export function optimizeSteps(steps) {
       if (sameGroup) last.moves.push(t.m);
       else parts.push({ kind, moves: [t.m], act: t.act });
     }
-    return { name: step.name, parts, count: parts.reduce((n, p) => n + p.moves.length, 0) };
+    return { name: step.name, parts, count: parts.reduce((n, p) => n + (p.kind === "rotate" ? 0 : p.moves.length), 0) };
   });
+}
+
+/** Back-to-back rotations (end of one series, start of the next) collapse into one. */
+function mergeRotations(stack) {
+  for (let i = 0; i < stack.length; i++) {
+    if (stack[i].kind !== "rotate") continue;
+    let j = i;
+    while (j + 1 < stack.length && stack[j + 1].kind === "rotate" && stack[j + 1].step === stack[i].step) j++;
+    const word = rotationWord(rotationOf(stack.slice(i, j + 1).map((t) => t.m)));
+    stack.splice(i, j - i + 1, ...word.map((m) => ({ ...stack[i], m })));
+    i += word.length - 1;
+  }
 }
 
 const OPPOSITE = { U: "D", D: "U", F: "B", B: "F", R: "L", L: "R" };
@@ -176,22 +194,24 @@ export class MarshallSolver {
   buildTable(base) {
     const baseMoves = parseAlg(base);
     const variants = new Map();
-    for (const rot of ROTATIONS) {
-      for (const alg of [mapAlg(rot, baseMoves), invertAlg(mapAlg(rot, baseMoves))]) {
+    const rotations = ROTATIONS.map((rot) => ({ rot, word: rotationWord(rot) })).sort((a, b) => a.word.length - b.word.length);
+    for (const { rot, word } of rotations) {
+      for (const canon of [baseMoves, invertAlg(baseMoves)]) {
+        const alg = mapAlg(rot, canon);
         const k = flatKey(this.run(this.solvedFlat, alg));
-        if (!variants.has(k)) variants.set(k, alg);
+        if (!variants.has(k)) variants.set(k, { alg, canon, word });
       }
     }
     const setups = setupSequences(2);
     const conj = new Map();
-    for (const series of variants.values()) {
+    for (const v of variants.values()) {
+      const series = v.alg;
       for (const setup of setups) {
         const seq = [...setup, ...series, ...invertAlg(setup)];
-        const merged = mergeTurns(seq);
         const k = flatKey(this.run(this.solvedFlat, seq));
-        const cost = merged.length;
+        const cost = 2 * setup.length + series.length;
         const cur = conj.get(k);
-        if (!cur || cost < cur.cost) conj.set(k, { setup, series, cost });
+        if (!cur || cost < cur.cost) conj.set(k, { setup, series, canon: v.canon, word: v.word, cost });
       }
     }
     const entries = new Map();
@@ -202,13 +222,10 @@ export class MarshallSolver {
       const t = this.run(this.solvedFlat, [...c.setup, ...c.series, ...invertAlg(c.setup)]);
       for (const pre of pres) {
         const f = pre.length ? compose(this.flatMoves[pre[0]], t, scratch) : t;
-        const first = c.setup[0] ?? c.series[0];
-        const cost = !pre.length ? c.cost
-          : pre[0][0] !== first[0] && OPPOSITE[pre[0][0]] !== first[0] ? c.cost + 1
-          : mergeTurns([...pre, ...c.setup, ...c.series, ...invertAlg(c.setup)]).length;
+        const cost = c.cost - c.setup.length + mergeTurns([...pre, ...c.setup]).length;
         const k = hashFlat(f);
         const cur = entries.get(k);
-        if (!cur || cost < cur.cost) entries.set(k, { flat: f === scratch ? scratch.slice() : f, pre, setup: c.setup, series: c.series, cost });
+        if (!cur || cost < cur.cost) entries.set(k, { flat: f === scratch ? scratch.slice() : f, pre, setup: c.setup, series: c.series, canon: c.canon, word: c.word, cost });
       }
     }
     // plain face turns are also available moves
@@ -621,7 +638,10 @@ export class MarshallSolver {
       if (a.pre.length && !a.series.length) { parts.push({ kind: "turns", moves: a.pre, act }); continue; }
       if (a.pre.length) parts.push({ kind: "turns", moves: a.pre, act });
       if (a.setup.length) parts.push({ kind: "setup", moves: a.setup, act });
-      parts.push({ kind, moves: a.series, act });
+      const turn = a.word?.length;
+      if (turn) parts.push({ kind: "rotate", moves: a.word, act });
+      parts.push({ kind, moves: a.canon ?? a.series, act });
+      if (turn) parts.push({ kind: "rotate", moves: invertRotationWord(a.word), act });
       if (a.setup.length) parts.push({ kind: "undo", moves: invertAlg(a.setup), act });
     }
     return parts;

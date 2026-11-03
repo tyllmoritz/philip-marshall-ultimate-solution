@@ -40,6 +40,8 @@ button.full::before { content: "\25B6  "; color: var(--accent); }
 .legend .chip { font: inherit; font-size: .8rem; }
 .chip.f2l { color: var(--f2l); }
 .chip.edge { color: var(--edge); } .chip.corner { color: var(--corner); }
+.chip.rotate { color: var(--ink); border-style: dotted; }
+.twizzle { margin: 8px 0 0; font-size: .9rem; }
 .chip.setup, .chip.undo { color: var(--setup); border-style: dashed; } .chip.turns { color: var(--ink); }
 #steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .step-head { display: flex; justify-content: space-between; width: 100%; text-align: left; font-weight: 600; }

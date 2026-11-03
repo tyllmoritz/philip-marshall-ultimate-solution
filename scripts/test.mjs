@@ -1,7 +1,7 @@
 import { cube3x3x3 } from "cubing/puzzles";
 import { MarshallSolver } from "../src/engine/solver.js";
 import { buildMoveTables, FACES } from "../src/engine/cube.js";
-import { compose, flatSolved } from "../src/engine/flat.js";
+import { compose, flatSolved, flatFromMove } from "../src/engine/flat.js";
 import { solvedMask } from "../src/engine/solver.js";
 const kp = await cube3x3x3.kpuzzle();
 let t = performance.now();
@@ -11,12 +11,20 @@ const EDGE_BITS = (list) => list.reduce((m, i) => m | (1 << i), 0);
 const CORNER_BITS = (list) => list.reduce((m, i) => m | (1 << (12 + i)), 0);
 const PAIR = { 8: 0, 9: 3, 10: 1, 11: 2 }; // middle edge -> its corner next to the cross
 function checkSteps(solver, scr, r, f2l) {
-  let s = solver.run(solver.solvedFlat, scr);
+  // replay through cubing itself so x/y/z rotations are interpreted independently of the solver
+  const flatOf = (alg) => {
+    const t = kp.algToTransformation(alg).transformationData;
+    return flatFromMove({ ep: Uint8Array.from(t.EDGES.permutation), eo: Uint8Array.from(t.EDGES.orientationDelta), cp: Uint8Array.from(t.CORNERS.permutation), co: Uint8Array.from(t.CORNERS.orientationDelta) });
+  };
   const masks = [];
+  const played = [...scr];
   for (const step of r.steps) {
-    s = solver.run(s, step.parts.flatMap((p) => p.moves));
-    masks.push(solvedMask(s));
+    played.push(...step.parts.flatMap((p) => p.moves));
+    masks.push(solvedMask(flatOf(played.join(" "))));
   }
+  const canon = { edge: ["F R' F' R", "R' F R F'"], corner: ["U R U' L' U R' U' L", "L' U R U' L U R' U'"] };
+  for (const p of r.steps.flatMap((st) => st.parts))
+    if (canon[p.kind] && !canon[p.kind].includes(p.moves.join(" "))) return "series not in front/top form: " + p.moves.join(" ");
   const has = (m, bits) => (m & bits) === bits;
   const bitsSet = (m, list) => list.filter((i) => m & (1 << i)).length;
   const cross = EDGE_BITS([0, 1, 2, 3]);
