@@ -253,7 +253,7 @@ export class MarshallSolver {
     if (!table.partIndex) table.partIndex = {};
     if (!table.partIndex[part]) {
       const idx = new Map();
-      for (const e of table) {
+      for (const e of this.usableFor(table, part)) {
         const k = this.partKey(e.flat, cfg);
         if (!idx.has(k)) idx.set(k, e);
       }
@@ -263,13 +263,24 @@ export class MarshallSolver {
     const n = new Uint8Array(N);
     let best = null, bestCost = Infinity;
     const identity = { flat: this.solvedFlat, pre: [], setup: [], series: [], cost: 0 };
-    for (const a of [identity, ...table]) {
+    for (const a of [identity, ...this.usableFor(table, part)]) {
       if (a.cost >= bestCost) break;
       compose(s, a.flat, n);
       const b = idx.get(this.partKey(this.invertPart(n, cfg), cfg));
       if (b && a.cost + b.cost < bestCost) { best = a === identity ? [b] : [a, b]; bestCost = a.cost + b.cost; }
     }
     return best;
+  }
+  /** Corner finishing must not disturb the (already solved) edges. */
+  usableFor(table, part) {
+    if (part === "edges") return table;
+    if (!table.edgeSafe) {
+      table.edgeSafe = table.filter((e) => {
+        for (let i = 0; i < 12; i++) if (e.flat[i] !== i || e.flat[12 + i]) return false;
+        return true;
+      });
+    }
+    return table.edgeSafe;
   }
   partKey(f, { n, p, o }) {
     return String.fromCharCode.apply(null, f.subarray(p, p + n)) + String.fromCharCode.apply(null, f.subarray(o, o + n));
@@ -366,6 +377,7 @@ export class MarshallSolver {
     log("The End Game", this.actionsToParts(r5.actions, "corner"));
     s = r5.state;
 
+    if (flatKey(s) !== flatKey(this.solvedFlat)) throw new Error("internal error: cube not solved");
     const all = mergeTurns(steps.flatMap((st) => st.parts.flatMap((p) => p.moves)));
     return { steps, total: all.length, solution: all, finalState: s };
   }
