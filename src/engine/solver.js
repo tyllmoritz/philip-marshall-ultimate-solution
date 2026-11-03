@@ -326,6 +326,7 @@ export class MarshallSolver {
   /** Solve from a scramble given as move list. Returns the best of six cross orientations. */
   solve(scrambleMoves) {
     let best = null;
+    let firstError = null;
     // six choices of which face holds the cross: rotations putting each face on U
     const tops = [];
     for (const rot of ROTATIONS) if (!tops.some((r) => r.U === rot.U)) tops.push(rot);
@@ -345,10 +346,10 @@ export class MarshallSolver {
         };
         if (!best || mapped.total < best.total) best = mapped;
       } catch (e) {
-        if (!best) best = { error: e.message };
+        firstError ??= e.message;
       }
     }
-    return best;
+    return best ?? { error: firstError };
   }
 
   solveOriented(scrambleMoves) {
