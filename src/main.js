@@ -10,9 +10,6 @@ const player = new TwistyPlayer({
   controlPanel: "bottom-row",
   hintFacelets: "none",
 });
-player.style.width = "100%";
-player.style.maxWidth = "520px";
-player.style.height = "360px";
 $("player").appendChild(player);
 
 const worker = new Worker(new URL("./worker.js", import.meta.url), { type: "module" });
