@@ -20,6 +20,8 @@ cheapest table entry that places more pieces without disturbing finished ones; i
 finishes with a two-entry meet-in-the-middle lookup. The cross search also tracks quarter-turn parity,
 since the series are even permutations. All six cross faces are tried and the shortest result is kept.
 
+**Partial F2L option:** after the three center-section edges are placed, the three corners that pair with them are placed too (cross + 3 pairs). Step 3 then solves the remaining 5 edges using only series that leave those corners alone (it falls back to the plain method if that is impossible for an orientation). Costs about 5 extra moves on average.
+
 This is an independent implementation (average about 57-60 moves), not a transcription of the original write-up.
 
 ## Develop

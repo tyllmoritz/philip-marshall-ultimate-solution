@@ -15,6 +15,8 @@ export const CORNER_SERIES = "U R U' L' U R' U' L";
 
 const CROSS_BASE = [1, 24, 576, 13824]; // radix for the four cross edges UF UR UB UL
 const MIDDLE = [8, 9, 10, 11]; // FR FL BR BL
+// top-layer corner that forms an F2L pair with each center-section edge (FR FL BR BL)
+const PAIR_CORNER = { 8: 0, 9: 3, 10: 1, 11: 2 };
 const ALL_EDGES = [...Array(12).keys()];
 const ALL_CORNERS = [...Array(8).keys()];
 
@@ -362,7 +364,7 @@ export class MarshallSolver {
 
   // ---------- full solve ----------
   /** Solve from a scramble given as move list. Returns the best of six cross orientations. */
-  solve(scrambleMoves) {
+  solve(scrambleMoves, options = {}) {
     let best = null;
     let firstError = null;
     // six choices of which face holds the cross: rotations putting each face on U
@@ -370,7 +372,7 @@ export class MarshallSolver {
     for (const rot of ROTATIONS) if (!tops.some((r) => r.U === rot.U)) tops.push(rot);
     for (const rot of tops) {
       try {
-        const res = this.solveOriented(mapAlg(rot, scrambleMoves));
+        const res = this.solveOriented(mapAlg(rot, scrambleMoves), options);
         // map solution back: inverse rotation
         const inv = Object.fromEntries(FACES.map((f) => [rot[f], f]));
         const mapped = {
@@ -390,7 +392,7 @@ export class MarshallSolver {
     return best ?? { error: firstError };
   }
 
-  solveOriented(scrambleMoves) {
+  solveOriented(scrambleMoves, { f2l = false } = {}) {
     const start = this.run(this.solvedFlat, scrambleMoves);
     const rawSteps = [];
     this.actionId = 0;
@@ -402,10 +404,32 @@ export class MarshallSolver {
     let s = c.state;
 
     const r2 = this.climb(s, this.edgeTable, { target: { edges: MIDDLE, corners: [] }, goal: 3 });
-    log("Center Section Edge Pieces", this.actionsToParts(r2.actions, "edge"));
+    const edgeTarget = { target: { edges: ALL_EDGES, corners: [] }, goal: 12 };
     s = r2.state;
+    let step2 = { name: "Center Section Edge Pieces", parts: this.actionsToParts(r2.actions, "edge") };
+    let r3 = null;
+    let pairs = 0;
 
-    const r3 = this.climb(s, this.edgeTable, { target: { edges: ALL_EDGES, corners: [] }, goal: 12 });
+    if (f2l) {
+      // Partial F2L: also place the corners that pair up with the three solved
+      // center-section edges, then finish the other five edges without touching them.
+      try {
+        const corners = this.solvedEdges(s, MIDDLE).slice(0, 3).map((e) => PAIR_CORNER[e]);
+        const rc = this.climb(s, this.cornerTable, { target: { edges: [], corners }, goal: corners.length });
+        const keep = this.edgeTable.filter((e) => corners.every((i) => e.flat[24 + i] === i && e.flat[32 + i] === 0));
+        const re = this.climb(rc.state, keep, edgeTarget);
+        step2 = {
+          name: "Center Section Edge Pieces + 3 F2L pairs",
+          parts: [...step2.parts, ...this.actionsToParts(rc.actions, "corner")],
+        };
+        r3 = re;
+        pairs = corners.length;
+      } catch {
+        r3 = null; // fall back to the plain method for this orientation
+      }
+    }
+    if (!r3) r3 = this.climb(s, this.edgeTable, edgeTarget);
+    log(step2.name, step2.parts);
     log("Top Edge Pieces", this.actionsToParts(r3.actions, "edge"));
     s = r3.state;
 
@@ -420,7 +444,7 @@ export class MarshallSolver {
     if (flatKey(s) !== flatKey(this.solvedFlat)) throw new Error("internal error: cube not solved");
     const steps = optimizeSteps(rawSteps);
     const all = steps.flatMap((st) => st.parts.flatMap((p) => p.moves));
-    return { steps, total: all.length, solution: all, finalState: s };
+    return { steps, total: all.length, solution: all, finalState: s, f2lPairs: pairs };
   }
 
   actionsToParts(actions, kind) {

@@ -19,6 +19,8 @@ main { display: grid; gap: 16px; padding-block: 12px 48px; }
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
 label { font-weight: 600; display: block; margin-bottom: 6px; }
 textarea { width: 100%; font: 15px ui-monospace, monospace; padding: 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); resize: vertical; }
+.check { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; margin-top: 10px; font-weight: 400; }
+.check .hint { color: var(--muted); font-size: .88rem; }
 .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
 button { font: inherit; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; }
 button:hover:not(:disabled) { border-color: var(--accent); }

@@ -78,7 +78,7 @@ function solve() {
   setStatus("Solving…");
   show(scramble, []);
   nextId++;
-  worker.postMessage({ id: nextId, scramble });
+  worker.postMessage({ id: nextId, scramble, f2l: $("f2l").checked });
   current = { scramble, result: null };
 }
 
@@ -89,7 +89,8 @@ function finish(result) {
     return;
   }
   current.result = result;
-  setStatus(`Solved in ${result.total} moves (cross on the ${result.crossFace} face).`);
+  const pairs = result.f2lPairs ? `, ${result.f2lPairs} F2L pairs` : "";
+  setStatus(`Solved in ${result.total} moves (cross on the ${result.crossFace} face${pairs}).`);
   render(current);
   show(current.scramble, result.solution);
   player.play();
@@ -131,6 +132,13 @@ function render({ scramble, result }) {
 
 $("plain").addEventListener("click", () => {
   if (current?.result) { show(current.scramble, current.result.solution); player.play(); }
+});
+
+try {
+  $("f2l").checked = localStorage.getItem("marshall-f2l") === "1";
+} catch {}
+$("f2l").addEventListener("change", () => {
+  try { localStorage.setItem("marshall-f2l", $("f2l").checked ? "1" : "0"); } catch {}
 });
 
 $("scramble").value = randomScramble().join(" ");
