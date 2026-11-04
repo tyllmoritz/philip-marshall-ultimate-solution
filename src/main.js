@@ -439,7 +439,18 @@ function go(kind, dir) {
   const target = dir > 0
     ? list.find((x) => msOf(x.s) > lastTs + eps)
     : [...list].reverse().find((x) => msOf(x.s) < lastTs - eps) ?? list[0];
-  if (!target) return;
+  if (!target) {
+    // nothing further: jump to the end of the solution
+    const end = view.cum[view.moves.length];
+    if (dir < 0 || lastTs >= end - 1) return;
+    cancelHold();
+    wantPlay = false;
+    pin = null;
+    lastTs = end;
+    player.pause();
+    player.timestamp = end;
+    return;
+  }
   if (kind === "algo" && scope) scope = { s: target.s, e: target.e };
   else if (kind === "step") scope = null;
   lastTs = msOf(target.s);
