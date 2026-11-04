@@ -67,3 +67,6 @@ Every step (and the cross) produces a few candidate solutions - different first 
 F2L algorithms vs. series - and the one with the lowest [movecount coefficient](https://github.com/trangium/trangium.github.io/tree/master/MovecountCoefficient)
 (MCC, by Trangium, MIT; vendored in `src/engine/mcc.js`) is kept. If a later step cannot be finished from a candidate, the next best one is used.
 A `y` rotation also commutes with `U`/`D` turns, so `y2 U y2` collapses to `U`.
+
+Step 4 ends with at least 5 corners home and the remaining 2 or 3 on one side (a common face), so the end game
+starts from a position one corner series can finish; the tests check this.

@@ -24,6 +24,12 @@ const MIDDLE = [8, 9, 10, 11]; // FR FL BR BL
 const PAIR_CORNER = { 8: 4, 9: 5, 10: 7, 11: 6 };
 const ALL_EDGES = [...Array(12).keys()];
 const ALL_CORNERS = [...Array(8).keys()];
+const CORNER_FACES = [[0, 1, 2, 3], [4, 5, 6, 7], [0, 3, 4, 5], [1, 2, 6, 7], [0, 1, 4, 7], [2, 3, 5, 6]]; // U D F B R L
+/** Corners that are not home yet all lie on one face (so one corner series can finish them). */
+export function unsolvedOnOneSide(f) {
+  const open = ALL_CORNERS.filter((i) => !(f[24 + i] === i && f[32 + i] === 0));
+  return CORNER_FACES.some((face) => open.every((i) => face.includes(i)));
+}
 
 /** Bit i (edges 0-11) / 12+i (corners): that piece sits at home, correctly oriented. */
 export function solvedMask(f) {
@@ -636,8 +642,13 @@ export class MarshallSolver {
   solveFrom(cross, { f2l = false } = {}) {
     this.actionId = 0;
     const edgeTarget = { target: { edges: ALL_EDGES, corners: [] }, goal: 12 };
-    const cornerStage = (name, goal) => (s) => this.rank((pick) => {
-      const r = this.climb(s, this.cornerTable, { target: { edges: [], corners: ALL_CORNERS }, goal, pick });
+    // step 4 ends with at least 5 corners home and the rest (2 or 3) on one side, ready for the end game
+    const fiveOnASide = (f) => {
+      const n = this.solvedCorners(f, ALL_CORNERS).length;
+      return n >= 5 && unsolvedOnOneSide(f) ? n : Math.min(n, 4);
+    };
+    const cornerStage = (name, goal, count) => (s) => this.rank((pick) => {
+      const r = this.climb(s, this.cornerTable, { target: { edges: [], corners: ALL_CORNERS }, goal, count, pick });
       return { parts: this.actionsToParts(r.actions, "corner"), state: r.state };
     }).map((c) => ({ ...c, name }));
     const stages = [
@@ -646,7 +657,7 @@ export class MarshallSolver {
         const r = ctx.corners.length ? this.finishEdges(s, ctx.corners, edgeTarget, pick) : this.climb(s, this.edgeTable, { ...edgeTarget, pick });
         return { parts: this.actionsToParts(r.actions, "edge"), state: r.state };
       }).map((c) => ({ ...c, name: "Top Edge Pieces" })),
-      cornerStage("Five Corner Pieces", 5),
+      cornerStage("Five Corner Pieces", 5, fiveOnASide),
       cornerStage("The End Game", 8),
     ];
     const go = (i, s, ctx) => {

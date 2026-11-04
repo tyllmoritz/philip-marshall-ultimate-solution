@@ -2,7 +2,7 @@ import { cube3x3x3 } from "cubing/puzzles";
 import { MarshallSolver } from "../src/engine/solver.js";
 import { buildMoveTables, FACES } from "../src/engine/cube.js";
 import { compose, flatSolved, flatFromMove } from "../src/engine/flat.js";
-import { solvedMask } from "../src/engine/solver.js";
+import { solvedMask, unsolvedOnOneSide } from "../src/engine/solver.js";
 const kp = await cube3x3x3.kpuzzle();
 let t = performance.now();
 const solver = new MarshallSolver(kp);
@@ -21,7 +21,9 @@ function checkSteps(solver, scr, r, f2l) {
   for (const step of r.steps) {
     played.push(...step.parts.flatMap((p) => p.moves));
     // from step 2 on the cube is turned over (x2); turn it back to judge piece positions
-    masks.push(solvedMask(flatOf(played.join(" ") + (masks.length && masks.length < 4 ? " x2" : ""))));
+    const f = flatOf(played.join(" ") + (masks.length && masks.length < 4 ? " x2" : ""));
+    masks.push(solvedMask(f));
+    if (masks.length === 4 && !unsolvedOnOneSide(f)) return "step 4: remaining corners are not on one side";
   }
   const canon = { edge: ["F R' F' R", "R' F R F'"], corner: ["U R U' L' U R' U' L", "L' U R U' L U R' U'"] };
   for (const p of r.steps.flatMap((st) => st.parts))
