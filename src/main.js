@@ -52,7 +52,15 @@ function randomScramble(length = 25) {
   return out;
 }
 
+let selected = null; // move index highlighted by a click
+
+function clearSelection() {
+  selected = null;
+  document.querySelectorAll(".mv.now").forEach((e) => e.classList.remove("now"));
+}
+
 function show(setupMoves, algMoves) {
+  clearSelection();
   player.experimentalSetupAlg = setupMoves.join(" ");
   player.alg = algMoves.join(" ");
   player.timestamp = "start";
@@ -137,7 +145,7 @@ function jumpTo(k) {
   show(scramble, result.solution);
   player.pause();
   player.timestamp = result.solution.slice(0, k + 1).reduce((t, m) => t + moveMs(m), 0);
-  document.querySelectorAll(".mv.now").forEach((e) => e.classList.remove("now"));
+  selected = k;
   document.querySelector(`.mv[data-i="${k}"]`)?.classList.add("now");
 }
 
@@ -191,7 +199,12 @@ $("solution").addEventListener("click", (e) => {
   const t = target(e);
   if (!t) return;
   const sol = current.result.solution;
-  if (t.classList.contains("mv")) { jumpTo(+t.dataset.i); return; }
+  if (t.classList.contains("mv")) {
+    // first click jumps there, a second click on the same move plays on from it
+    if (selected === +t.dataset.i) player.play();
+    else jumpTo(+t.dataset.i);
+    return;
+  }
   const s = +t.dataset.s, end = +t.dataset.e;
   play([...current.scramble, ...sol.slice(0, s)], sol.slice(s, end));
 });
@@ -215,3 +228,6 @@ $("f2l").addEventListener("change", () => {
 
 $("scramble").value = randomScramble().join(" ");
 show(parseScramble($("scramble").value), []);
+
+// a click anywhere that is not a move drops the selection
+document.addEventListener("click", (e) => { if (!e.target.closest?.(".mv")) clearSelection(); });
