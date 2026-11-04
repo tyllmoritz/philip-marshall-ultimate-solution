@@ -74,3 +74,9 @@ starts from a position one corner series can finish; the tests check this.
 The player's alg carries `//` comments for every group of moves (step names, setup, rotation, series), so its built-in
 Twizzle button opens the solution with explanations. The highlighted move follows the animation, and the layout adapts
 from phones to a two-column desktop view.
+
+## cubing.js
+
+Besides the player, the page uses [`cubing/alg`](https://js.cubing.net/cubing/alg/) to read the scramble field
+(comments, groupings like `(R U)3`, commutators `[R, U]`, curly quotes) and [`cubing/scramble`](https://js.cubing.net/cubing/scramble/)
+for the Random scramble button (a proper random-state 3x3x3 scramble).

@@ -1,3 +1,5 @@
+import { Alg } from "cubing/alg";
+import { randomScrambleForEvent } from "cubing/scramble";
 import { TwistyPlayer } from "cubing/twisty";
 
 const $ = (id) => document.getElementById(id);
@@ -31,11 +33,27 @@ function setStatus(text, isError = false) {
   el.classList.toggle("error", isError);
 }
 
+/** Scramble text -> face turns, via cubing's alg parser (comments, groupings, commutators, repeats all work). */
 function parseScramble(text) {
-  const tokens = text.replace(/[’‘`]/g, "'").trim().split(/\s+/).filter(Boolean);
-  const bad = tokens.find((t) => !MOVE.test(t));
+  let alg;
+  try {
+    alg = new Alg(text.replace(/[’‘`]/g, "'"));
+  } catch (err) {
+    throw new Error("Could not read the scramble: " + err.message);
+  }
+  const moves = [...alg.expand().experimentalLeafMoves()].map((m) => m.toString());
+  const bad = moves.find((m) => !MOVE.test(m));
   if (bad) throw new Error(`Unsupported move "${bad}". Use U D F B R L with ' or 2.`);
-  return tokens;
+  return moves;
+}
+
+/** A fresh scramble from cubing's WCA-style scrambler; plain random turns if it is unavailable. */
+async function newScramble() {
+  try {
+    return (await randomScrambleForEvent("333")).toString();
+  } catch {
+    return randomScramble().join(" ");
+  }
 }
 
 function randomScramble(length = 25) {
@@ -84,9 +102,11 @@ function show(setupMoves, algMoves, from = null) {
   clearHighlight();
 }
 
-$("random").addEventListener("click", () => {
-  const scr = randomScramble();
-  $("scramble").value = scr.join(" ");
+$("random").addEventListener("click", async () => {
+  $("random").disabled = true;
+  setStatus("Scrambling…");
+  $("scramble").value = await newScramble();
+  $("random").disabled = false;
   solve();
 });
 $("solve").addEventListener("click", solve);
@@ -245,6 +265,7 @@ $("f2l").addEventListener("change", () => {
 
 $("scramble").value = randomScramble().join(" ");
 show(parseScramble($("scramble").value), []);
+newScramble().then((text) => { if (!current) { $("scramble").value = text; show(parseScramble(text), []); } });
 
 // a click anywhere that is not a move drops the selection
 document.addEventListener("click", (e) => { if (!e.target.closest?.(".mv")) clearHighlight(); });
