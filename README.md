@@ -134,3 +134,7 @@ Reliability: the cube's periodic state report is compared with the tracked state
 a lost connection is reported instead of silently ignoring moves; *Re-read cube* asks for the state again and, for GAN Gen2-4 cubes,
 *Cube is solved: reset* does what Reset in the GAN app does (only press it when the physical cube is solved). A cube whose internal state
 differs from the physical cube (turned while it was off or its battery was swapped) can only be fixed by that reset.
+
+Dragging or touching one of the two cubes turns the other one the same way (their cameras are linked). GAN Gen2-4 cubes need their MAC address:
+once a cube has been read successfully with an address, it is kept in `localStorage` (by the cube's name) and used next time without asking; a saved
+address that does not work is forgotten.

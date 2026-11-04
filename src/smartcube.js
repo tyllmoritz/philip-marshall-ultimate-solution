@@ -38,6 +38,14 @@ export function cubeFrameMoves(solution) {
   return out;
 }
 
+const MAC_KEY = "marshall-gan-macs";
+function loadMacs() {
+  try { return JSON.parse(localStorage.getItem(MAC_KEY)) ?? {}; } catch { return {}; }
+}
+function storeMacs(macs) {
+  try { localStorage.setItem(MAC_KEY, JSON.stringify(macs)); } catch {}
+}
+
 export function initSmartCube(api) {
   let kpuzzle = null;
   let puzzle = null; // connected BluetoothPuzzle
@@ -204,9 +212,20 @@ export function initSmartCube(api) {
    */
   async function connectGan() {
     kpuzzle ??= await cube3x3x3.kpuzzle();
-    const conn = await connectGanCube(async (_device, isFallback) => (isFallback
-      ? window.prompt("The cube's MAC address could not be read automatically.\nEnter it (like AB:12:34:CD:56:EF; Chrome: chrome://bluetooth-internals shows it):")
-      : null));
+    const macs = loadMacs();
+    let usedSaved = null; // device name whose saved MAC address was used this time
+    const conn = await connectGanCube(async (device, isFallback) => {
+      const saved = macs[device.name];
+      if (!isFallback) {
+        if (saved) usedSaved = device.name;
+        return saved ?? null; // a MAC we already know; otherwise the browser tries to read it itself
+      }
+      const typed = window.prompt(
+        "The cube's MAC address could not be read automatically.\nEnter it (like AB:12:34:CD:56:EF; Chrome: chrome://bluetooth-internals shows it):",
+        saved ?? Object.values(macs).at(-1) ?? "",
+      );
+      return typed?.trim() || null;
+    });
     const listeners = [], faceletListeners = [], lostListeners = [];
     const waiting = [];
     let facelets = null;
@@ -222,6 +241,21 @@ export function initSmartCube(api) {
       }
     });
     await conn.sendCubeCommand({ type: "REQUEST_FACELETS" });
+    // a MAC address is only kept once the cube's state could be read with it (a wrong one decrypts to nonsense)
+    try {
+      const first = facelets ?? await Promise.race([
+        new Promise((resolve) => waiting.push(resolve)),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("no answer from the cube")), 8000)),
+      ]);
+      faceletsToPattern(kpuzzle, first);
+    } catch (err) {
+      sub.unsubscribe();
+      conn.disconnect();
+      if (usedSaved) { delete macs[usedSaved]; storeMacs(macs); }
+      throw new Error(`Could not read the cube (${err.message}); check its MAC address and try again.`);
+    }
+    macs[conn.deviceName] = conn.deviceMAC;
+    storeMacs(macs);
     return {
       name: () => conn.deviceName,
       disconnect() { sub.unsubscribe(); conn.disconnect(); },
