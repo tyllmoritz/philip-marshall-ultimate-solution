@@ -83,6 +83,7 @@ let holdTimer = null;
 let scope = null; // {s, e}: a series that was clicked and plays on its own (repeat off)
 let win = null; // {a, b} in ms: what the current playback loops over or stops at
 let dragging = false;
+let pin = null; // {ms, g}: a jump target; at exactly this time the move g is the current one (not the one that just ended)
 const HOLD = 1000; // one rotation of pause before and after jumps
 const REPEATS = ["off", "all", "step", "algo"];
 
@@ -153,7 +154,7 @@ function onTime(ts) {
   if (!view) return;
   if (!dragging) $("progress").value = ts;
   clearHighlight();
-  const g = indexAt(ts);
+  const g = pin && Math.abs(ts - pin.ms) < 1 ? pin.g : indexAt(ts);
   if (ts > 0) {
     lit = g;
     document.querySelector(`.mv[data-i="${g}"]`)?.classList.add("now");
@@ -222,7 +223,8 @@ function updateWindow(g = indexAt(lastTs)) {
 }
 
 /** Jump there, wait one rotation, then play. */
-function playFrom(ms, g) {
+function playFrom(ms, g = indexAt(ms)) {
+  pin = { ms, g };
   lastTs = ms;
   updateWindow(g);
   wantPlay = true;
@@ -379,6 +381,7 @@ $("solution").addEventListener("click", (e) => {
     wantPlay = false;
     player.pause();
     lastTs = msOf(k + 1);
+    pin = null;
     player.timestamp = lastTs;
     return;
   }
@@ -440,6 +443,7 @@ function go(kind, dir) {
   if (kind === "algo" && scope) scope = { s: target.s, e: target.e };
   else if (kind === "step") scope = null;
   lastTs = msOf(target.s);
+  pin = { ms: lastTs, g: target.s };
   updateWindow(target.s);
   cancelHold();
   player.pause();
@@ -457,6 +461,7 @@ $("progress").addEventListener("pointerup", () => { dragging = false; });
 $("progress").addEventListener("input", () => {
   if (!view) return;
   lastTs = +$("progress").value;
+  pin = null;
   player.timestamp = lastTs;
   updateWindow();
 });
