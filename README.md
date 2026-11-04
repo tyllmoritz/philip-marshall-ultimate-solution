@@ -60,3 +60,10 @@ After step 1 the cube is turned over (`x2`) so yellow is on top; steps 2-5 are s
 The solution is shown as nested borders: the outer border plays the full solution, a step's border plays that step,
 a block (series, setup, rotation) plays just that part, and a single move jumps to the cube state right after it
 (the full solution stays loaded, so you can keep stepping from there).
+
+## Choosing the best solution per step
+
+Every step (and the cross) produces a few candidate solutions - different first moves, different equally short crosses,
+F2L algorithms vs. series - and the one with the lowest [movecount coefficient](https://github.com/trangium/trangium.github.io/tree/master/MovecountCoefficient)
+(MCC, by Trangium, MIT; vendored in `src/engine/mcc.js`) is kept. If a later step cannot be finished from a candidate, the next best one is used.
+A `y` rotation also commutes with `U`/`D` turns, so `y2 U y2` collapses to `U`.

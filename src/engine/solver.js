@@ -6,6 +6,7 @@
 import {
   buildMoveTables, parseAlg, invertAlg, emptyState, applyTo, FACES,
 } from "./cube.js";
+import { movecount } from "./mcc.js";
 import { F2L_ALGS, F2L_EXTRACTIONS, F2L_PRE } from "./f2l.js";
 import {
   N, flatFromMove, flatFromState, flatSolved, compose, flatKey, ROTATIONS, mapAlg,
@@ -143,6 +144,23 @@ export function optimizeSteps(steps) {
 
 /** Back-to-back rotations (end of one series, start of the next) collapse into one. */
 function mergeRotations(stack) {
+  // a y rotation commutes with U and D turns, so y2 U y2 is just U
+  const isY = (t) => t.kind === "rotate" && t.m[0] === "y";
+  const free = (t) => t.kind !== "rotate" && !t.solid && (t.m[0] === "U" || t.m[0] === "D");
+  for (let again = true; again;) {
+    again = false;
+    for (let i = 0; i < stack.length && !again; i++) {
+      if (!isY(stack[i])) continue;
+      let j = i + 1;
+      while (j < stack.length && stack[j].step === stack[i].step && free(stack[j])) j++;
+      if (j > i + 1 && j < stack.length && stack[j].step === stack[i].step && isY(stack[j])) {
+        const word = rotationWord(rotationOf([stack[i].m, stack[j].m]));
+        stack.splice(j, 1, ...word.map((m) => ({ ...stack[j], m })));
+        stack.splice(i, 1);
+        again = true;
+      }
+    }
+  }
   for (let i = 0; i < stack.length; i++) {
     if (stack[i].kind !== "rotate") continue;
     let j = i;
@@ -399,7 +417,7 @@ export class MarshallSolver {
    * overrides that with a custom score on a full state; `first` lists entries that
    * may start a two-step lookahead (default: the cheapest table entries).
    */
-  climb(flat, table, { target, goal, count: customCount, first }) {
+  climb(flat, table, { target, goal, count: customCount, first, pick = 0 }) {
     const actions = [];
     let s = flat;
     const buf = new Uint8Array(N);
@@ -410,6 +428,7 @@ export class MarshallSolver {
       const base = count(s);
       const kept = solvedMask(s);
       let best = null, bestScore = -1, bestCost = Infinity;
+      const options = pick && guard === 1 ? [] : null; // alternative first moves, to compare by movecount coefficient
       for (const e of table) {
         if (best && e.cost > bestCost + 6) break;
         if (kept & ~e.mask) continue; // would disturb a finished piece
@@ -419,7 +438,12 @@ export class MarshallSolver {
         const gain = after - base;
         if (gain < 1) continue;
         const score = gain * 100 - e.cost;
+        options?.push({ e, score });
         if (score > bestScore) { best = e; bestScore = score; bestCost = e.cost; }
+      }
+      if (options?.length > 1) {
+        options.sort((a, b) => b.score - a.score || a.e.cost - b.e.cost);
+        best = options[Math.min(pick, options.length - 1)].e;
       }
       if (!best) {
         const part = target.edges.length ? "edges" : "corners";
@@ -544,124 +568,134 @@ export class MarshallSolver {
   }
 
   // ---------- full solve ----------
-  /** Solve from a scramble given as move list. Returns the best of six cross orientations. */
+  /** Movecount coefficient of a step's parts, as they will be written (turns cancelled within the step). */
+  mcc(parts) {
+    const [step] = optimizeSteps([{ name: "", parts }]);
+    return movecount(step.parts.flatMap((p) => p.moves));
+  }
+
+  /** Distinct candidates from make(0..picks-1), best (lowest movecount coefficient) first. */
+  rank(make, picks = 6) {
+    const seen = new Map();
+    for (let pick = 0; pick < picks; pick++) {
+      let c;
+      try { c = make(pick); } catch { continue; }
+      const key = c.parts.map((p) => p.kind + ":" + p.moves.join(" ")).join("|");
+      if (seen.has(key)) continue;
+      c.score = this.mcc(c.parts);
+      seen.set(key, c);
+    }
+    return [...seen.values()].sort((a, b) => a.score - b.score);
+  }
+
   /**
    * The cross is always built on the top (white) face. Several equally short
-   * crosses lead to different later steps; try a few and keep the shortest solution.
+   * crosses lead to different later steps; every step offers a few candidates and
+   * the one with the lowest movecount coefficient wins (falling back to the next
+   * candidate if a later step cannot be finished from it).
    */
   solve(scrambleMoves, options = {}) {
-    let best = null;
+    const start = this.run(this.solvedFlat, scrambleMoves);
+    const crosses = new Map();
+    for (let variant = 0; variant < 12; variant++) {
+      const c = this.solveCross(start, variant);
+      const key = c.moves.join(" ");
+      if (!crosses.has(key)) crosses.set(key, { ...c, score: movecount(c.moves) });
+    }
     let firstError = null;
-    let found = 0;
-    for (let variant = 0; variant < 12 && found < 4; variant++) {
+    for (const cross of [...crosses.values()].sort((a, b) => a.score - b.score)) {
       try {
-        const res = this.solveOriented(scrambleMoves, { ...options, variant });
-        found++;
-        if (!best || res.total < best.total) best = { ...res, crossFace: "U" };
+        return { ...this.solveFrom(cross, options), crossFace: "U" };
       } catch (e) {
         firstError ??= e.message;
       }
     }
-    return best ?? { error: firstError };
+    return { error: firstError };
   }
 
-  solveOriented(scrambleMoves, { f2l = false, variant = 0 } = {}) {
-    const start = this.run(this.solvedFlat, scrambleMoves);
-    const rawSteps = [];
+  step2Candidates(state, f2l) {
+    const mid = { target: { edges: MIDDLE, corners: [] }, goal: 3 };
+    const plain = (pick) => {
+      const r = this.climb(state, this.edgeTable, { ...mid, pick });
+      return { name: "Center Section Edge Pieces", parts: this.actionsToParts(r.actions, "edge"), state: r.state, corners: [], pairs: 0 };
+    };
+    if (!f2l) return this.rank(plain);
+    // Partial F2L: three corner-edge pairs next to the cross, then the other five edges with
+    // series that leave those corners alone. Two ways to get the pairs (F2L insertion algorithms,
+    // or Marshall's own edge + corner series); the better one by movecount coefficient wins.
+    const bySeries = (pick) => {
+      const r = plain(pick);
+      const corners = this.solvedEdges(r.state, MIDDLE).slice(0, 3).map((e) => PAIR_CORNER[e]);
+      const rc = this.climb(r.state, this.cornerTable, { target: { edges: [], corners }, goal: corners.length });
+      return { name: "Center Section Edge Pieces + 3 F2L pairs", parts: [...r.parts, ...this.actionsToParts(rc.actions, "corner")], state: rc.state, corners, pairs: corners.length };
+    };
+    const all = [...this.rank((pick) => this.f2lByAlgorithms(state, pick)), ...this.rank(bySeries)].sort((a, b) => a.score - b.score);
+    return all.length ? all : this.rank(plain);
+  }
+
+  solveFrom(cross, { f2l = false } = {}) {
     this.actionId = 0;
-    const log = (name, parts) => rawSteps.push({ name, parts });
-
-    // 1. cross
-    const c = this.solveCross(start, variant);
-    log("The Cross", c.moves.length ? [{ kind: "turns", moves: c.moves }] : []);
-    // turn the cube over (x2): the rest is solved with yellow on top, the cross layer below
-    let s = compose(compose(this.flipFlat, c.state), this.flipFlat);
-
-    const r1State = s;
-    const r2 = this.climb(s, this.edgeTable, { target: { edges: MIDDLE, corners: [] }, goal: 3 });
     const edgeTarget = { target: { edges: ALL_EDGES, corners: [] }, goal: 12 };
-    s = r2.state;
-    let step2 = { name: "Center Section Edge Pieces", parts: this.actionsToParts(r2.actions, "edge") };
-    let r3 = null;
-    let pairs = 0;
-
-    if (f2l) {
-      // Partial F2L: three corner-edge pairs next to the cross, then the other five
-      // edges with series that leave those corners alone. Two ways to get the pairs
-      // (F2L insertion algorithms, or Marshall's own edge + corner series); keep the shorter.
-      const plans = [this.f2lByAlgorithms(r1State, edgeTarget), this.f2lBySeries(s, edgeTarget, r2, step2.parts)].filter(Boolean);
-      const best = plans.sort((a, b) => a.moves - b.moves)[0];
-      if (best) {
-        step2 = { name: best.name, parts: best.parts };
-        r3 = best.r3;
-        pairs = best.pairs;
+    const cornerStage = (name, goal) => (s) => this.rank((pick) => {
+      const r = this.climb(s, this.cornerTable, { target: { edges: [], corners: ALL_CORNERS }, goal, pick });
+      return { parts: this.actionsToParts(r.actions, "corner"), state: r.state };
+    }).map((c) => ({ ...c, name }));
+    const stages = [
+      (s) => this.step2Candidates(s, f2l),
+      (s, ctx) => this.rank((pick) => {
+        const r = ctx.corners.length ? this.finishEdges(s, ctx.corners, edgeTarget, pick) : this.climb(s, this.edgeTable, { ...edgeTarget, pick });
+        return { parts: this.actionsToParts(r.actions, "edge"), state: r.state };
+      }).map((c) => ({ ...c, name: "Top Edge Pieces" })),
+      cornerStage("Five Corner Pieces", 5),
+      cornerStage("The End Game", 8),
+    ];
+    const go = (i, s, ctx) => {
+      if (i === stages.length) {
+        if (flatKey(s) !== flatKey(this.solvedFlat)) throw new Error("internal error: cube not solved");
+        return [];
       }
-    }
-    if (!r3) r3 = this.climb(s, this.edgeTable, edgeTarget);
-    log(step2.name, step2.parts);
-    log("Top Edge Pieces", this.actionsToParts(r3.actions, "edge"));
-    s = r3.state;
-
-    const r4 = this.climb(s, this.cornerTable, { target: { edges: [], corners: ALL_CORNERS }, goal: 5 });
-    log("Five Corner Pieces", this.actionsToParts(r4.actions, "corner"));
-    s = r4.state;
-
-    const r5 = this.climb(s, this.cornerTable, { target: { edges: [], corners: ALL_CORNERS }, goal: 8 });
-    log("The End Game", this.actionsToParts(r5.actions, "corner"));
-    s = r5.state;
-
-    if (flatKey(s) !== flatKey(this.solvedFlat)) throw new Error("internal error: cube not solved");
-    const steps = flipAfterCross(optimizeSteps(rawSteps));
+      for (const c of stages[i](s, ctx)) {
+        try {
+          return [c, ...go(i + 1, c.state, { corners: c.corners ?? ctx.corners, pairs: c.pairs ?? ctx.pairs })];
+        } catch { /* try the next candidate */ }
+      }
+      throw new Error("stuck");
+    };
+    // turn the cube over (x2): the rest is solved with yellow on top, the cross layer below
+    const flipped = compose(compose(this.flipFlat, cross.state), this.flipFlat);
+    const chosen = go(0, flipped, { corners: [], pairs: 0 });
+    const rawSteps = [
+      { name: "The Cross", parts: cross.moves.length ? [{ kind: "turns", moves: cross.moves }] : [] },
+      ...chosen.map((c) => ({ name: c.name, parts: c.parts })),
+    ];
+    const steps = flipAfterCross(optimizeSteps(rawSteps)).map((st) => ({ ...st, mcc: movecount(st.parts.flatMap((p) => p.moves)) }));
     const all = steps.flatMap((st) => st.parts.flatMap((p) => p.moves));
-    return { steps, total: all.length, solution: all, finalState: s, f2lPairs: pairs };
+    return { steps, total: steps.reduce((n, st) => n + st.count, 0), solution: all, mcc: movecount(all), f2lPairs: chosen[0].pairs };
   }
 
   /** Corner-preserving finish of the five remaining edges after the pairs are in. */
-  finishEdges(state, corners, edgeTarget) {
+  finishEdges(state, corners, edgeTarget, pick = 0) {
     const need = corners.reduce((m, i) => m | (1 << (12 + i)), 0);
     const source = this.edgeParity(state) ? this.edgeTable.withOdd : this.edgeTable;
     const keep = source.filter((e) => !(need & ~e.mask));
-    return this.climb(state, keep, edgeTarget);
+    return this.climb(state, keep, { ...edgeTarget, pick });
   }
 
-  f2lByAlgorithms(state, edgeTarget) {
-    try {
-      const { table, first } = this.buildF2LTable();
-      const pairCount = (f) => {
-        let n = 0;
-        for (const e of MIDDLE) {
-          const c = PAIR_CORNER[e];
-          if (f[e] === e && f[12 + e] === 0 && f[24 + c] === c && f[32 + c] === 0) n += 2;
-        }
-        return n;
-      };
-      const rp = this.climb(state, table, { target: { edges: [], corners: [] }, goal: 6, count: pairCount, first });
-      const corners = MIDDLE.filter((e) => rp.state[e] === e && rp.state[12 + e] === 0).map((e) => PAIR_CORNER[e])
-        .filter((c) => rp.state[24 + c] === c && rp.state[32 + c] === 0);
-      const r3 = this.finishEdges(rp.state, corners, edgeTarget);
-      const parts = this.actionsToParts(rp.actions, "f2l");
-      return { name: "F2L pairs (cross + 3 pairs)", parts, r3, pairs: 3, moves: rp.actions.reduce((n, a) => n + a.cost, 0) + r3.actions.reduce((n, a) => n + a.cost, 0) };
-    } catch {
-      return null;
-    }
-  }
-
-  f2lBySeries(state, edgeTarget, r2, edgeParts) {
-    try {
-      const corners = this.solvedEdges(state, MIDDLE).slice(0, 3).map((e) => PAIR_CORNER[e]);
-      const rc = this.climb(state, this.cornerTable, { target: { edges: [], corners }, goal: corners.length });
-      const r3 = this.finishEdges(rc.state, corners, edgeTarget);
-      const cost = (r) => r.actions.reduce((n, a) => n + a.cost, 0);
-      return {
-        name: "Center Section Edge Pieces + 3 F2L pairs",
-        parts: [...edgeParts, ...this.actionsToParts(rc.actions, "corner")],
-        r3,
-        pairs: corners.length,
-        moves: cost(r2) + cost(rc) + cost(r3),
-      };
-    } catch {
-      return null;
-    }
+  /** Three F2L pairs by insertion algorithms (null-safe: throws if the table cannot do it). */
+  f2lByAlgorithms(state, pick = 0) {
+    const { table, first } = this.buildF2LTable();
+    const pairCount = (f) => {
+      let n = 0;
+      for (const e of MIDDLE) {
+        const c = PAIR_CORNER[e];
+        if (f[e] === e && f[12 + e] === 0 && f[24 + c] === c && f[32 + c] === 0) n += 2;
+      }
+      return n;
+    };
+    const rp = this.climb(state, table, { target: { edges: [], corners: [] }, goal: 6, count: pairCount, first, pick });
+    const corners = MIDDLE.filter((e) => rp.state[e] === e && rp.state[12 + e] === 0).map((e) => PAIR_CORNER[e])
+      .filter((c) => rp.state[24 + c] === c && rp.state[32 + c] === 0);
+    return { name: "F2L pairs (cross + 3 pairs)", parts: this.actionsToParts(rp.actions, "f2l"), state: rp.state, corners, pairs: 3 };
   }
 
   actionsToParts(actions, kind) {

@@ -90,7 +90,7 @@ function finish(result) {
   }
   current.result = result;
   const pairs = result.f2lPairs ? ` (cross + ${result.f2lPairs} F2L pairs)` : "";
-  setStatus(`Solved in ${result.total} moves${pairs}.`);
+  setStatus(`Solved in ${result.total} moves, MCC ${result.mcc.toFixed(1)}${pairs}.`);
   render(current);
   show(current.scramble, result.solution);
   player.play();
@@ -158,7 +158,7 @@ function render({ scramble, result }) {
     li.dataset.s = at;
     const head = document.createElement("div");
     head.className = "step-head";
-    head.innerHTML = `<span class="step-name">${i + 1}. ${step.name}</span><span class="step-count">${step.count} moves</span>`;
+    head.innerHTML = `<span class="step-name">${i + 1}. ${step.name}</span><span class="step-count" title="Movecount coefficient: estimated execution cost, lower is better">${step.count} moves · MCC ${step.mcc.toFixed(1)}</span>`;
     const body = document.createElement("div");
     if (!step.parts.length) body.textContent = "Already solved.";
     let prevRotate = null;
