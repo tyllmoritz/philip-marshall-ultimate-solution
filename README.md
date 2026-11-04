@@ -93,3 +93,10 @@ series that are playing are highlighted (hovering uses a lighter shade).
 The two series go by their usual names: the Edge Series `F R' F' R` is the *Hedgeslammer* (its inverse `R' F R F'` is the
 *Sledgehammer*), the Corner Series `U R U' L' U R' U' L` is *Niklas*.
 
+
+## Sexy moves and natural turns
+
+The edge series are all turned and mirrored forms of the Hedgeslammer (`F R' F' R`) and Sledgehammer, e.g. the sexy move
+`R U R' U'` and `U R U' R'`, `L' U L U'`, `U L' U' L`, written without turning the cube. When several spellings do the same
+thing the one with the best movecount coefficient wins - which does prefer natural turns (R U L D) to F and B, and punishes
+cube rotations (3.5 each). The cheap table costs weight F/B and rotations the same way so the solver leans that direction while searching.

@@ -95,7 +95,7 @@ const repeatMode = () => $("repeat").dataset.mode;
 function setRepeat(mode) {
   const b = $("repeat");
   b.dataset.mode = mode;
-  b.textContent = mode === "off" ? "repeat" : mode;
+  b.textContent = "↻ " + (mode === "off" ? "repeat" : mode);
   b.classList.toggle("off", mode === "off");
   b.title = { off: "Repeat: off (click to cycle)", all: "Repeat the whole solution", step: "Repeat the current step", algo: "Repeat the current series" }[mode];
 }
@@ -275,14 +275,18 @@ function finish(result) {
   playFrom(0, 0);
 }
 
-const KIND_LABEL = { edge: "Hedgeslammer / Sledgehammer (edge series)", corner: "Niklas (corner series)", setup: "setup / undo turns", undo: "undo", turns: "turns", rotate: "cube rotation", f2l: "F2L algorithm" };
+const KIND_LABEL = { edge: "Hedgeslammer / Sledgehammer / sexy move (edge series)", corner: "Niklas (corner series)", setup: "setup / undo turns", undo: "undo", turns: "turns", rotate: "cube rotation", f2l: "F2L algorithm" };
 
 /** What a part of the solution does, for the // comments in the player and its Twizzle link. */
 function describe(p, parts, k) {
   const next = parts[k + 1]?.kind;
   const series = (kind) => kind === "edge" || kind === "corner";
   if (p.note) return p.note;
-  if (p.kind === "edge") return `${p.moves.join(" ") === "F R' F' R" ? "Hedgeslammer" : "Sledgehammer"} (edge series): cycles three edge pieces, corners get disturbed`;
+  if (p.kind === "edge") {
+    const name = p.moves.join(" ") === "F R' F' R" ? "Hedgeslammer" : p.moves.join(" ") === "R' F R F'" ? "Sledgehammer"
+      : p.moves.every((m) => "RLUD".includes(m[0])) ? "Sexy move (a Hedgeslammer/Sledgehammer turned or mirrored)" : "Hedgeslammer/Sledgehammer, turned";
+    return `${name}: cycles three edge pieces, corners get disturbed`;
+  }
   if (p.kind === "corner") return `Niklas${p.moves[0] === "U" ? "" : " inverse"} (corner series): cycles three corners and twists them, edges stay put`;
   if (p.kind === "f2l") return "F2L algorithm: insert a corner-edge pair next to the cross";
   if (p.kind === "rotate") return series(next) ? "Rotate the cube so the series is done at the front/top" : "Rotate back to the original orientation";

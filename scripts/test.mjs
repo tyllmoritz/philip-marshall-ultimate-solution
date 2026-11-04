@@ -25,9 +25,14 @@ function checkSteps(solver, scr, r, f2l) {
     masks.push(solvedMask(f));
     if (masks.length === 4 && !unsolvedOnOneSide(f)) return "step 4: remaining corners are not on one side";
   }
-  const canon = { edge: ["F R' F' R", "R' F R F'"], corner: ["U R U' L' U R' U' L", "L' U R U' L U R' U'"] };
-  for (const p of r.steps.flatMap((st) => st.parts))
-    if (canon[p.kind] && !canon[p.kind].includes(p.moves.join(" "))) return "series not in front/top form: " + p.moves.join(" ");
+  const inv = (m) => (m.endsWith("2") ? m : m.endsWith("'") ? m[0] : m + "'");
+  // an edge series is a commutator X Y X' Y' of two adjacent faces (any orientation, mirrored or not)
+  const commutator = (m) => m.length === 4 && m[2] === inv(m[0]) && m[3] === inv(m[1]) && m[0][0] !== m[1][0] && !m[0].endsWith("2") && !m[1].endsWith("2");
+  const niklas = ["U R U' L' U R' U' L", "L' U R U' L U R' U'"];
+  for (const p of r.steps.flatMap((st) => st.parts)) {
+    if (p.kind === "edge" && !commutator(p.moves)) return "edge series is not a commutator: " + p.moves.join(" ");
+    if (p.kind === "corner" && !niklas.includes(p.moves.join(" "))) return "series not in front/top form: " + p.moves.join(" ");
+  }
   const has = (m, bits) => (m & bits) === bits;
   const bitsSet = (m, list) => list.filter((i) => m & (1 << i)).length;
   const cross = EDGE_BITS([0, 1, 2, 3]);

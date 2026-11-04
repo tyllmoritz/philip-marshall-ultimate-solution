@@ -202,6 +202,19 @@ function flipAfterCross(steps) {
   });
 }
 
+// how awkward a turn is (the movecount coefficient punishes F and B, and rotations, the most)
+const TURN_WEIGHT = { U: 1, R: 1, L: 1, D: 1.1, F: 1.3, B: 1.3 };
+const ROTATE_WEIGHT = 3;
+const weight = (moves) => moves.reduce((n, m) => n + TURN_WEIGHT[m[0]], 0);
+const MIRROR_FACE = { R: "L", L: "R", U: "U", D: "D", F: "F", B: "B" };
+/** Mirror image (left <-> right) of an algorithm. */
+function mirrorAlg(moves) {
+  return moves.map((m) => {
+    const f = MIRROR_FACE[m[0]];
+    return f + (m.length === 1 ? "'" : m[1] === "2" ? "2" : "");
+  });
+}
+
 const OPPOSITE = { U: "D", D: "U", F: "B", B: "F", R: "L", L: "R" };
 function setupSequences(maxLen) {
   const turns = [];
@@ -234,8 +247,8 @@ export class MarshallSolver {
       cp: Uint8Array.from(x2.CORNERS.permutation), co: Uint8Array.from(x2.CORNERS.orientationDelta),
     });
     this.crossDist = null;
-    this.edgeTable = this.buildTable(EDGE_SERIES);
-    this.cornerTable = this.buildTable(CORNER_SERIES, true);
+    this.edgeTable = this.buildTable(EDGE_SERIES, { mirror: true, plain: true });
+    this.cornerTable = this.buildTable(CORNER_SERIES, { anyFace: true });
     this.buildCrossTable();
   }
 
@@ -245,29 +258,40 @@ export class MarshallSolver {
     return s;
   }
 
-  /** All distinct transformations of  P S series S' , with their cheapest spelling. */
-  buildTable(base, anyFace = false) {
+  /**
+   * All distinct transformations of  P S series S' , with their cheapest spellings.
+   * A series can be written in any orientation (rotated or mirrored, e.g. F R' F' R ~ R U R' U' ~ U' L' U L)
+   * without turning the cube, or in its canonical form between cube rotations; natural turns
+   * (R U L D) are preferred to F and B, and rotations are expensive, like in the movecount coefficient.
+   */
+  buildTable(base, { anyFace = false, mirror = false, plain = false } = {}) {
     const baseMoves = parseAlg(base);
-    const variants = new Map();
-    // only turns around the vertical axis (y): white stays on top, yellow at the bottom
-    const rotations = ROTATIONS.filter((rot) => rot.U === "U").map((rot) => ({ rot, word: rotationWord(rot) })).sort((a, b) => a.word.length - b.word.length);
-    for (const { rot, word } of rotations) {
+    const forms = new Map();
+    for (const rot of ROTATIONS) {
+      const word = rotationWord(rot);
       for (const canon of [baseMoves, invertAlg(baseMoves)]) {
         const alg = mapAlg(rot, canon);
-        const k = flatKey(this.run(this.solvedFlat, alg));
-        if (!variants.has(k)) variants.set(k, { alg, canon, word });
+        const add = (form) => forms.set(form.canon.join(" ") + "|" + form.word.join(" ") + "|" + form.alg.join(" "), form);
+        if (plain || !word.length) add({ alg, canon: alg, word: [] });
+        // the canonical text between rotations; the edge series keep white on top (y rotations only)
+        if (word.length && (anyFace || rot.U === "U")) add({ alg, canon, word });
+        if (mirror) {
+          const m = mirrorAlg(alg);
+          add({ alg: m, canon: m, word: [] });
+        }
       }
     }
-    const setups = setupSequences(anyFace ? 2 : 3);
+    const setups = setupSequences(2);
     const conj = new Map();
-    for (const v of variants.values()) {
-      const series = v.alg;
+    for (const v of forms.values()) {
       for (const setup of setups) {
-        const seq = [...setup, ...series, ...invertAlg(setup)];
+        const seq = [...setup, ...v.alg, ...invertAlg(setup)];
         const k = flatKey(this.run(this.solvedFlat, seq));
-        const cost = 2 * setup.length + series.length;
+        const cost = 2 * weight(setup) + weight(v.canon) + 2 * ROTATE_WEIGHT * v.word.length;
+        const alt = { setup, series: v.alg, canon: v.canon, word: v.word, cost };
         const cur = conj.get(k);
-        if (!cur || cost < cur.cost) conj.set(k, { setup, series, canon: v.canon, word: v.word, cost });
+        if (!cur || cost < cur.cost - 1e-9) conj.set(k, { ...alt, alts: [alt] });
+        else if (Math.abs(cost - cur.cost) < 1e-9 && cur.alts.length < 6) cur.alts.push(alt);
       }
     }
     const entries = new Map();
@@ -278,17 +302,17 @@ export class MarshallSolver {
       const t = this.run(this.solvedFlat, [...c.setup, ...c.series, ...invertAlg(c.setup)]);
       for (const pre of pres) {
         const f = pre.length ? compose(this.flatMoves[pre[0]], t, scratch) : t;
-        const cost = c.cost - c.setup.length + mergeTurns([...pre, ...c.setup]).length;
+        const cost = c.cost - weight(c.setup) + weight(mergeTurns([...pre, ...c.setup]));
         const k = hashFlat(f);
         const cur = entries.get(k);
-        if (!cur || cost < cur.cost) entries.set(k, { flat: f === scratch ? scratch.slice() : f, pre, setup: c.setup, series: c.series, canon: c.canon, word: c.word, cost });
+        if (!cur || cost < cur.cost) entries.set(k, { flat: f === scratch ? scratch.slice() : f, pre, setup: c.setup, series: c.series, canon: c.canon, word: c.word, alts: c.alts, cost });
       }
     }
     // plain face turns are also available moves
     const list = [...entries.values()];
     for (const f of FACES) for (const s of ["", "2", "'"]) {
       const m = f + s;
-      list.push({ flat: this.flatMoves[m], pre: [m], setup: [], series: [], cost: 1 });
+      list.push({ flat: this.flatMoves[m], pre: [m], setup: [], series: [], cost: weight([m]) });
     }
     // the cross step already fixed edge parity, so only even transformations are useful
     for (const e of list) e.mask = solvedMask(e.flat);
@@ -709,10 +733,22 @@ export class MarshallSolver {
     return { name: "F2L pairs (cross + 3 pairs)", parts: this.actionsToParts(rp.actions, "f2l"), state: rp.state, corners, pairs: 3 };
   }
 
+  /** Of the equally cheap spellings of an action, the one with the lowest movecount coefficient. */
+  nicest(a) {
+    if (!a.alts || a.alts.length < 2) return a;
+    let best = null, bestScore = Infinity;
+    for (const alt of a.alts) {
+      const score = movecount([...a.pre, ...alt.setup, ...alt.word, ...alt.canon, ...invertRotationWord(alt.word), ...invertAlg(alt.setup)]);
+      if (score < bestScore) { best = alt; bestScore = score; }
+    }
+    return { ...a, setup: best.setup, series: best.series, canon: best.canon, word: best.word };
+  }
+
   actionsToParts(actions, kind) {
     const parts = [];
-    for (const a of actions) {
+    for (const orig of actions) {
       const act = this.actionId++;
+      const a = this.nicest(orig);
       if (a.pre.length && !a.series.length) { parts.push({ kind: "turns", moves: a.pre, act }); continue; }
       if (a.pre.length) parts.push({ kind: "turns", moves: a.pre, act });
       if (a.setup.length) parts.push({ kind: "setup", moves: a.setup, act });
