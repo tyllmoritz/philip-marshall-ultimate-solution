@@ -83,7 +83,13 @@ for the Random scramble button (a proper random-state 3x3x3 scramble).
 
 ## Playback
 
-The player always holds either the full solution or one complete step. Clicking a series plays only that series inside it
-(then pauses, or loops with Repeat). The borders of the solution, step and series that are currently playing are highlighted
-(hovering uses a lighter shade). Buttons: previous/next step, previous/next series, play/pause, and Repeat: off, series, step or all.
-A second click on a move plays from that move (including it).
+The player always holds the full solution; cubing's own controls are hidden in favour of our own: a progress bar,
+previous/next step, previous/next series, play/pause, a repeat button that cycles off / all / step / algo, and a
+Twizzle link that opens the solution with `//` comments explaining every move. Clicking a series plays just that series,
+clicking a step repeats that step, clicking the outer border plays everything, and a second click on a move plays from it.
+After every jump (and before every loop) the animation holds for one rotation. The borders of the solution, step and
+series that are playing are highlighted (hovering uses a lighter shade).
+
+The two series go by their usual names: the Edge Series `F R' F' R` is the *Hedgeslammer* (its inverse `R' F R F'` is the
+*Sledgehammer*), the Corner Series `U R U' L' U R' U' L` is *Niklas*.
+

@@ -9,7 +9,7 @@ const player = new TwistyPlayer({
   puzzle: "3x3x3",
   visualization: "3D",
   background: "none",
-  controlPanel: "bottom-row",
+  controlPanel: "none",
   hintFacelets: "none",
 });
 $("player").appendChild(player);
@@ -70,19 +70,35 @@ function randomScramble(length = 25) {
   return out;
 }
 
-// ---- what the player shows: always the full solution or one complete step ----
-// view = { kind: "full" | "step", step, from, to, moves, cum } (global move indices; cum = start time of each move in ms)
+// ---- the player always holds the full solution ----
+// view = { from: 0, to, moves, cum } (global move indices; cum[k] = start time of move k in ms)
 let view = null;
 let layout = null; // { steps: [{s, e}], units: [{s, e, step}] } for the current solution
 let lit = null; // move index highlighted to follow the animation
 let lastTs = 0;
 let isPlaying = false;
+let wantPlay = false; // playback was asked for and has not been stopped yet
+let holding = false; // waiting one rotation before (re)starting
+let holdTimer = null;
 let scope = null; // {s, e}: a series that was clicked and plays on its own (repeat off)
 let win = null; // {a, b} in ms: what the current playback loops over or stops at
+let dragging = false;
+const HOLD = 1000; // one rotation of pause before and after jumps
+const REPEATS = ["off", "all", "step", "algo"];
 
 // whole-turn animation lengths used by cubing.js, to turn a move index into a timestamp
 const moveMs = (m) => (m.endsWith("2") ? 1500 : 1000);
 const msOf = (g) => view.cum[Math.min(Math.max(g - view.from, 0), view.moves.length)];
+const repeatMode = () => $("repeat").dataset.mode;
+
+function setRepeat(mode) {
+  const b = $("repeat");
+  b.dataset.mode = mode;
+  b.textContent = mode === "off" ? "repeat" : mode;
+  b.classList.toggle("off", mode === "off");
+  b.title = { off: "Repeat: off (click to cycle)", all: "Repeat the whole solution", step: "Repeat the current step", algo: "Repeat the current series" }[mode];
+}
+setRepeat("off");
 
 function clearHighlight() {
   lit = null;
@@ -97,20 +113,45 @@ function indexAt(ts) {
   return view.from + k;
 }
 
-/** The active border path: solution (when showing everything) > step > series > the move being played. */
+/** Active borders: the step and series being played, and the solution when the whole of it is. */
 function markActive(g) {
   document.querySelectorAll(".active").forEach((e) => e.classList.remove("active"));
   if (!view) return;
-  if (view.kind === "full") $("solution").classList.add("active");
+  const wholeSolution = !scope && (repeatMode() === "off" || repeatMode() === "all");
+  if (wholeSolution) $("solution").classList.add("active");
   const step = layout.steps.findIndex((x) => g >= x.s && g < x.e);
   const unit = layout.units.findIndex((x) => g >= x.s && g < x.e);
-  document.querySelector(`.step[data-step="${view.kind === "step" ? view.step : step}"]`)?.classList.add("active");
-  if (view.kind === "full" || (unit >= 0 && layout.units[unit].step === view.step)) document.querySelector(`.unit[data-unit="${unit}"]`)?.classList.add("active");
+  document.querySelector(`.step[data-step="${step}"]`)?.classList.add("active");
+  document.querySelector(`.unit[data-unit="${unit}"]`)?.classList.add("active");
+}
+
+function updatePlayButton() {
+  const on = isPlaying || holding;
+  $("playpause").textContent = on ? "⏸" : "▶";
+  $("playpause").title = on ? "Pause" : "Play";
+}
+
+function cancelHold() {
+  clearTimeout(holdTimer);
+  holding = false;
+}
+
+/** Run fn after one rotation of pause (the play button shows "pause" meanwhile). */
+function afterHold(fn) {
+  cancelHold();
+  holding = true;
+  updatePlayButton();
+  holdTimer = setTimeout(() => {
+    holding = false;
+    fn();
+    updatePlayButton();
+  }, HOLD);
 }
 
 function onTime(ts) {
   lastTs = ts;
   if (!view) return;
+  if (!dragging) $("progress").value = ts;
   clearHighlight();
   const g = indexAt(ts);
   if (ts > 0) {
@@ -118,20 +159,22 @@ function onTime(ts) {
     document.querySelector(`.mv[data-i="${g}"]`)?.classList.add("now");
   }
   markActive(g);
-  // loop or stop at the end of the playback window
-  if (isPlaying && win && ts >= win.b - 5) {
-    if ($("repeat").value !== "off") {
-      player.timestamp = win.a;
-      player.play();
-    } else if (win.b < view.cum[view.moves.length] - 5) player.pause();
+  // at the end of the playback window: pause one rotation, then loop (or stop)
+  if (wantPlay && !holding && win && ts >= win.b - 5) {
+    player.pause();
+    if (repeatMode() !== "off") {
+      afterHold(() => {
+        player.timestamp = win.a;
+        afterHold(() => player.play());
+      });
+    } else wantPlay = false;
   }
 }
-// the highlight and borders follow the animation (and the scrubber)
+// the highlight, borders and progress bar follow the animation (and the scrubber)
 player.experimentalModel.detailedTimelineInfo.addFreshListener((info) => onTime(info.timestamp));
 player.experimentalModel.playingInfo.addFreshListener((info) => {
   isPlaying = info.playing;
-  $("playpause").textContent = isPlaying ? "⏸" : "▶";
-  $("playpause").title = isPlaying ? "Pause" : "Play";
+  updatePlayButton();
 });
 
 /** Plain player state without a solution (e.g. while solving). */
@@ -140,6 +183,8 @@ function show(setupMoves, algMoves) {
   layout = null;
   scope = null;
   win = null;
+  wantPlay = false;
+  cancelHold();
   player.experimentalSetupAlg = setupMoves.join(" ");
   player.alg = algMoves.join(" ");
   player.timestamp = "start";
@@ -148,47 +193,42 @@ function show(setupMoves, algMoves) {
   setControls(false);
 }
 
-/** Load the full solution or one step into the player (nothing happens if it is already loaded). */
-function useView(kind, step = 0) {
+/** Load the full solution (with // comments explaining every part) into the player. */
+function useSolution() {
   const { scramble, result } = current;
-  if (view && view.kind === kind && (kind === "full" || view.step === step)) return;
-  const from = kind === "step" ? layout.steps[step].s : 0;
-  const to = kind === "step" ? layout.steps[step].e : result.solution.length;
-  const moves = result.solution.slice(from, to);
   const cum = [0];
-  for (const m of moves) cum.push(cum[cum.length - 1] + moveMs(m));
-  view = { kind, step, from, to, moves, cum };
-  player.experimentalSetupAlg = [...scramble, ...result.solution.slice(0, from)].join(" ");
-  player.alg = annotate(result.steps, from, to);
+  for (const m of result.solution) cum.push(cum[cum.length - 1] + moveMs(m));
+  view = { from: 0, to: result.solution.length, moves: result.solution, cum };
+  const alg = annotate(result.steps, 0, result.solution.length);
+  player.experimentalSetupAlg = scramble.join(" ");
+  player.alg = alg;
   player.timestamp = "start";
   clearHighlight();
-  markActive(from);
+  $("progress").max = cum[cum.length - 1];
+  $("progress").value = 0;
+  $("twizzle").href = "https://alpha.twizzle.net/edit/?" + new URLSearchParams({ alg, "setup-alg": scramble.join(" ") });
+  $("twizzle").classList.remove("disabled");
 }
 
-/** Make sure the player shows something that contains global moves [s, e). */
-function ensureContains(s, e) {
-  if (view && view.from <= s && e <= view.to) return;
-  useView("step", layout.steps.findIndex((x) => s >= x.s && s < x.e));
-}
-
-function updateWindow() {
+/** What a playback loops over / stops at, from the repeat mode, the clicked scope and position g. */
+function updateWindow(g = indexAt(lastTs)) {
   if (!view) return;
-  const g = indexAt(lastTs + 2); // the move about to be played, so a boundary belongs to what follows
-  const mode = $("repeat").value;
-  const whole = { s: view.from, e: view.to };
-  let range = whole;
-  if (mode === "series") range = layout.units.find((x) => g >= x.s && g < x.e) ?? whole;
-  else if (mode === "step") range = layout.steps.find((x) => g >= x.s && g < x.e) ?? whole;
+  const mode = repeatMode();
+  let range = { s: view.from, e: view.to };
+  if (mode === "algo") range = layout.units.find((x) => g >= x.s && g < x.e) ?? range;
+  else if (mode === "step") range = layout.steps.find((x) => g >= x.s && g < x.e) ?? range;
   else if (mode === "off" && scope) range = scope;
-  range = { s: Math.max(range.s, view.from), e: Math.min(range.e, view.to) };
   win = { a: msOf(range.s), b: msOf(range.e) };
 }
 
-function playFrom(ms) {
+/** Jump there, wait one rotation, then play. */
+function playFrom(ms, g) {
   lastTs = ms;
-  updateWindow(); // before seeking, so the time listener never sees the old window
+  updateWindow(g);
+  wantPlay = true;
+  player.pause();
   player.timestamp = ms;
-  player.play();
+  afterHold(() => player.play());
 }
 
 $("random").addEventListener("click", async () => {
@@ -228,20 +268,20 @@ function finish(result) {
   setStatus(`Solved in ${result.total} moves, MCC ${result.mcc.toFixed(1)}${pairs}.`);
   render(current);
   setControls(true);
-  useView("full");
+  useSolution();
   scope = null;
-  playFrom(0);
+  playFrom(0, 0);
 }
 
-const KIND_LABEL = { edge: "edge series", corner: "corner series", setup: "setup", undo: "undo", turns: "turns", rotate: "cube rotation", f2l: "F2L pair" };
+const KIND_LABEL = { edge: "Hedgeslammer / Sledgehammer (edge series)", corner: "Niklas (corner series)", setup: "setup / undo turns", undo: "undo", turns: "turns", rotate: "cube rotation", f2l: "F2L algorithm" };
 
 /** What a part of the solution does, for the // comments in the player and its Twizzle link. */
 function describe(p, parts, k) {
   const next = parts[k + 1]?.kind;
   const series = (kind) => kind === "edge" || kind === "corner";
   if (p.note) return p.note;
-  if (p.kind === "edge") return "Edge series: cycles three edge pieces (corners get disturbed)";
-  if (p.kind === "corner") return "Corner series: cycles three corners and twists them (edges stay put)";
+  if (p.kind === "edge") return `${p.moves.join(" ") === "F R' F' R" ? "Hedgeslammer" : "Sledgehammer"} (edge series): cycles three edge pieces, corners get disturbed`;
+  if (p.kind === "corner") return `Niklas${p.moves[0] === "U" ? "" : " inverse"} (corner series): cycles three corners and twists them, edges stay put`;
   if (p.kind === "f2l") return "F2L algorithm: insert a corner-edge pair next to the cross";
   if (p.kind === "rotate") return series(next) ? "Rotate the cube so the series is done at the front/top" : "Rotate back to the original orientation";
   if (p.kind === "setup") return series(next) || next === "rotate" ? "Setup: bring the pieces into position" : "Undo the setup";
@@ -267,7 +307,8 @@ function annotate(steps, from, to) {
 
 
 function setControls(on) {
-  document.querySelectorAll("#controls button, #controls select").forEach((e) => { e.disabled = !on; });
+  document.querySelectorAll("#controls button, #progress").forEach((e) => { e.disabled = !on; });
+  if (!on) $("twizzle").classList.add("disabled");
 }
 
 function render({ scramble, result }) {
@@ -326,35 +367,34 @@ function render({ scramble, result }) {
 
 // innermost clickable thing under the pointer: move > series > step > whole solution
 const target = (e) => e.target.closest?.(".mv, .unit, .step, .solution");
-const unitOf = (el) => layout.units[+el.dataset.unit];
-$("solution").addEventListener("click", async (e) => {
+$("solution").addEventListener("click", (e) => {
   if (!current?.result || !layout) return;
   const t = target(e);
   if (!t) return;
   if (t.classList.contains("mv")) {
     const k = +t.dataset.i;
-    ensureContains(k, k + 1);
-    // a second click on the highlighted move plays from that move (including it)
-    if (lit === k && !isPlaying) { scope = null; playFrom(msOf(k)); return; }
+    // first click jumps to the state after the move, a second click plays from the move (including it)
+    if (lit === k && !wantPlay) { scope = null; playFrom(msOf(k), k); return; }
+    cancelHold();
+    wantPlay = false;
     player.pause();
-    player.timestamp = msOf(k + 1);
     lastTs = msOf(k + 1);
+    player.timestamp = lastTs;
     return;
   }
   if (t.classList.contains("unit")) {
-    const u = unitOf(t);
-    ensureContains(u.s, u.e);
+    const u = layout.units[+t.dataset.unit];
     scope = { s: u.s, e: u.e };
-    playFrom(msOf(u.s));
+    playFrom(msOf(u.s), u.s);
   } else if (t.classList.contains("step")) {
-    const i = +t.dataset.step;
-    useView("step", i);
+    const st = layout.steps[+t.dataset.step];
     scope = null;
-    playFrom(0);
+    setRepeat("step"); // clicking a step repeats it
+    playFrom(msOf(st.s), st.s);
   } else {
-    useView("full");
     scope = null;
-    playFrom(0);
+    if (repeatMode() === "step" || repeatMode() === "algo") setRepeat("off");
+    playFrom(0, 0);
   }
 });
 let hot = null;
@@ -371,47 +411,55 @@ $("solution").addEventListener("pointerleave", () => { hot?.classList.remove("ho
 // ---- transport controls ----
 $("playpause").addEventListener("click", () => {
   if (!view) return;
-  if (isPlaying) { player.pause(); return; }
+  if (isPlaying || holding) {
+    cancelHold();
+    wantPlay = false;
+    player.pause();
+    updatePlayButton();
+    return;
+  }
   if (scope && (lastTs < msOf(scope.s) - 5 || lastTs >= msOf(scope.e) - 5)) scope = null;
-  playFrom(lastTs >= view.cum[view.moves.length] - 5 ? 0 : lastTs);
+  const end = view.cum[view.moves.length];
+  playFrom(lastTs >= end - 5 ? 0 : lastTs);
 });
-$("repeat").addEventListener("change", updateWindow);
+$("repeat").addEventListener("click", () => {
+  setRepeat(REPEATS[(REPEATS.indexOf(repeatMode()) + 1) % REPEATS.length]);
+  updateWindow();
+  if (view) markActive(indexAt(lastTs));
+});
 
-/** Jump to a series or step boundary; keeps playing if it was playing. */
+/** Jump to a series or step start; after a jump playback resumes following one rotation of pause. */
 function go(kind, dir) {
   if (!view) return;
-  const was = isPlaying;
-  const list = kind === "series" ? layout.units : layout.steps;
-  const inView = list.filter((x) => x.s >= view.from && x.e <= view.to);
+  const list = kind === "algo" ? layout.units : layout.steps;
   const eps = 1;
-  let target = null; // global move index to start at
-  if (dir > 0) {
-    target = inView.find((x) => msOf(x.s) > lastTs + eps);
-    if (!target && view.kind === "step") {
-      const next = layout.steps[view.step + 1];
-      if (next) { useView("step", view.step + 1); target = { s: next.s, e: next.e, switched: true }; }
-    }
-  } else {
-    target = [...inView].reverse().find((x) => msOf(x.s) < lastTs - eps);
-    if (!target && view.kind === "step" && view.step > 0) {
-      useView("step", view.step - 1);
-      const prev = (kind === "series" ? layout.units : layout.steps).filter((x) => x.s >= view.from && x.e <= view.to);
-      target = prev[prev.length - 1] ?? { s: view.from, e: view.to };
-    }
-    target ??= { s: view.from, e: view.to };
-  }
+  const target = dir > 0
+    ? list.find((x) => msOf(x.s) > lastTs + eps)
+    : [...list].reverse().find((x) => msOf(x.s) < lastTs - eps) ?? list[0];
   if (!target) return;
-  if (kind === "series" && scope) scope = { s: target.s, e: target.e };
+  if (kind === "algo" && scope) scope = { s: target.s, e: target.e };
   else if (kind === "step") scope = null;
   lastTs = msOf(target.s);
-  updateWindow();
+  updateWindow(target.s);
+  cancelHold();
+  player.pause();
   player.timestamp = lastTs;
-  if (was) player.play();
+  if (wantPlay) afterHold(() => player.play());
 }
 $("prev-step").addEventListener("click", () => go("step", -1));
-$("prev-series").addEventListener("click", () => go("series", -1));
-$("next-series").addEventListener("click", () => go("series", 1));
+$("prev-series").addEventListener("click", () => go("algo", -1));
+$("next-series").addEventListener("click", () => go("algo", 1));
 $("next-step").addEventListener("click", () => go("step", 1));
+
+// our own progress bar
+$("progress").addEventListener("pointerdown", () => { dragging = true; });
+$("progress").addEventListener("pointerup", () => { dragging = false; });
+$("progress").addEventListener("input", () => {
+  if (!view) return;
+  lastTs = +$("progress").value;
+  player.timestamp = lastTs;
+  updateWindow();
+});
 
 try {
   $("f2l").checked = localStorage.getItem("marshall-f2l") === "1";
