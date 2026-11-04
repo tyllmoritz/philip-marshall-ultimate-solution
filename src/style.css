@@ -75,10 +75,13 @@ code { font: 14px ui-monospace, monospace; overflow-wrap: anywhere; }
 .step { border: 1.5px solid var(--line); border-radius: 10px; padding: 6px 8px 8px; }
 .step-head { display: flex; justify-content: space-between; font-weight: 600; margin-bottom: 4px; }
 .step-count { color: var(--muted); font-weight: 400; }
-.unit { border: 1px solid transparent; border-radius: 8px; padding: 1px 3px; margin: 2px 0; display: inline; box-decoration-break: clone; -webkit-box-decoration-break: clone; cursor: pointer; line-height: 2; }
+/* a series has no frame of its own: hover/active use the borders of its chips */
+.unit { display: inline; cursor: pointer; line-height: 2; }
 /* hover: lighter; active (what is playing): full accent */
-.hot { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 40%, var(--line)); }
-.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.step.hot, .solution.hot { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 40%, var(--line)); }
+.step.active, .solution.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.unit.hot .chip { box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 40%, var(--line)); border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
+.unit.active .chip { box-shadow: 0 0 0 1px var(--accent); border-color: var(--accent); }
 .controls { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: center; margin-top: 10px; }
 .controls button { min-width: 44px; padding: 6px 10px; }
 #next-series { transform: none; }
