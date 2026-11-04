@@ -5,7 +5,9 @@ import { connectSmartPuzzle } from "cubing/bluetooth";
 import { experimentalSolve3x3x3IgnoringCenters } from "cubing/search";
 import { cube3x3x3 } from "cubing/puzzles";
 import { TwistyPlayer } from "cubing/twisty";
+import { connectGanCube } from "gan-web-bluetooth";
 import { rotationOf } from "./engine/flat.js";
+import { faceletsToPattern } from "./facelets.js";
 
 const $ = (id) => document.getElementById(id);
 const moveMs = (m) => (m.endsWith("2") ? 1500 : 1000);
@@ -107,8 +109,42 @@ export function initSmartCube(api) {
     check();
   }
 
+  /**
+   * GAN Gen2, Gen3 and Gen4 cubes (356 i3, 356 i Carry 2, 12 ui, Maglev, ...) talk a newer, encrypted protocol that
+   * cubing.js does not speak (it only knows the first generation); gan-web-bluetooth does. This wraps its connection
+   * in the few methods the rest of the page needs.
+   */
+  async function connectGan() {
+    kpuzzle ??= await cube3x3x3.kpuzzle();
+    const conn = await connectGanCube(async (_device, isFallback) => (isFallback
+      ? window.prompt("The cube's MAC address could not be read automatically.\nEnter it (like AB:12:34:CD:56:EF; Chrome: chrome://bluetooth-internals shows it):")
+      : null));
+    const listeners = [];
+    const waiting = [];
+    let facelets = null;
+    const sub = conn.events$.subscribe((ev) => {
+      if (ev.type === "FACELETS") {
+        facelets = ev.facelets;
+        waiting.splice(0).forEach((resolve) => resolve(facelets));
+      } else if (ev.type === "MOVE") {
+        listeners.forEach((f) => f({ latestAlgLeaf: ev.move, timeStamp: Date.now() }));
+      }
+    });
+    await conn.sendCubeCommand({ type: "REQUEST_FACELETS" });
+    return {
+      name: () => conn.deviceName,
+      disconnect() { sub.unsubscribe(); conn.disconnect(); },
+      async getPattern() {
+        return faceletsToPattern(kpuzzle, facelets ?? await new Promise((resolve) => waiting.push(resolve)));
+      },
+      addAlgLeafListener: (f) => listeners.push(f),
+    };
+  }
+
   async function connect(provider) {
     $("bt-connect").disabled = true;
+    $("bt-connect-gan").disabled = true;
+    $("bt-connect-gan").classList.remove("hint-me");
     status("Connecting…");
     try {
       kpuzzle ??= await cube3x3x3.kpuzzle();
@@ -128,11 +164,20 @@ export function initSmartCube(api) {
       live.experimentalSetupAlg = await patternToScramble(pattern);
       $("bt-connect").textContent = "Disconnect";
       $("bt-connect").disabled = false;
+      $("bt-connect-gan").hidden = true;
       status(`Connected${puzzle.name?.() ? ": " + puzzle.name() : ""}.`);
       computePlan();
     } catch (err) {
       $("bt-connect").disabled = false;
-      status(err?.message ? "Could not connect: " + err.message : "Could not connect.", true);
+      $("bt-connect-gan").disabled = false;
+      const msg = String(err?.message ?? "");
+      if (/No Services matching UUID/i.test(msg)) {
+        // cubing.js picked its first-generation GAN driver for a cube that speaks a newer protocol
+        status("This cube uses a newer GAN protocol (Gen2-Gen4) that cubing.js cannot read. Press \"Connect GAN cube (Gen2-4)\" and pick it again.", true);
+        $("bt-connect-gan").classList.add("hint-me");
+      } else {
+        status(msg ? "Could not connect: " + msg : "Could not connect.", true);
+      }
     }
   }
 
@@ -141,10 +186,13 @@ export function initSmartCube(api) {
     puzzle = null;
     $("bt").hidden = true;
     $("bt-connect").textContent = "Connect smart cube";
+    $("bt-connect-gan").hidden = false;
+    $("bt-connect-gan").disabled = false;
     status("Disconnected.");
   }
 
   $("bt-connect").addEventListener("click", () => (puzzle ? disconnect() : connect()));
+  $("bt-connect-gan").addEventListener("click", () => connect(connectGan));
   $("bt-take").addEventListener("click", async () => {
     if (!pattern) return;
     status("Reading the cube…");
@@ -162,6 +210,7 @@ export function initSmartCube(api) {
   });
 
   if (!navigator.bluetooth) {
+    $("bt-connect-gan").title = "Web Bluetooth is not available in this browser (try Chrome or Edge)";
     $("bt-connect").title = "Web Bluetooth is not available in this browser (try Chrome or Edge)";
   }
   // test hook: connect with a stand-in puzzle

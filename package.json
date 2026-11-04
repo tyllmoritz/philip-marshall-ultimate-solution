@@ -14,7 +14,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "cubing": "^0.53.3"
+    "cubing": "^0.53.3",
+    "gan-web-bluetooth": "^3.0.2"
   },
   "devDependencies": {
     "vite": "^8.3.5"

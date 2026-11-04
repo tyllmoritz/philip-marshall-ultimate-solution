@@ -111,3 +111,5 @@ a.btn.disabled { opacity: .5; pointer-events: none; }
 #bt-status.error { color: var(--err); }
 .bt-panel .label-row { margin-bottom: 0; }
 @media (min-width: 980px) { .bt-panel { grid-column: 1; } }
+.bt-buttons { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.hint-me { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }

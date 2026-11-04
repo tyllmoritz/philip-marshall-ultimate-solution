@@ -113,6 +113,11 @@ centre and dropped into the cross with a half turn; implies yellow on top) and *
 
 ## Smart cube (Bluetooth)
 
+Two connect buttons: *Connect smart cube* uses cubing.js (first-generation GAN, GoCube, Giiker, MoYu, QiYi, ...); *Connect GAN cube (Gen2-4)* uses
+[`gan-web-bluetooth`](https://github.com/afedotov/gan-web-bluetooth) (MIT) for the newer encrypted GAN protocols (356 i3, 356 i Carry 2, 12 ui, 12 ui Maglev, 14 ui, MoYu AI 2023, ...), because
+cubing.js's GAN driver only knows the first generation and fails on them with `No Services matching UUID 0000fff0-0000-1000-8000-00805f9b34fb found in Device`.
+The newer protocol needs the cube's MAC address; the browser reads it from the advertisement if it can, otherwise you are asked for it. Facelets from the cube are converted to a cubing.js pattern in `src/facelets.js`.
+
 *Connect smart cube* uses [`cubing/bluetooth`](https://js.cubing.net/cubing/bluetooth/) (Web Bluetooth: Chrome or Edge). Once connected there are two cubes:
 *Your cube* mirrors the real cube, and the second one repeats the **next algorithm** (one series with its setup, not the whole step).
 *Use cube state as scramble* turns the cube's state into a scramble (via cubing's solver) and solves it. *Next algorithm*
