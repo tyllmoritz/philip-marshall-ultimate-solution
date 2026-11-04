@@ -123,3 +123,14 @@ The newer protocol needs the cube's MAC address; the browser reads it from the a
 *Use cube state as scramble* turns the cube's state into a scramble (via cubing's solver) and solves it. *Next algorithm*
 becomes available as soon as the real cube shows the state that algorithm leads to. Solution rotations (`x2`, `y`, …) are not moves for a smart cube
 (its centres never move), so the solution is translated into the cube's own frame before it is compared.
+
+### Orientation sync and reliability
+
+The *Your cube* player is turned like the algorithm on the right: it gets the same `x2`/`y` rotations at the same points and the real
+cube's turns are shown on the face that has in that orientation (a smart cube reports turns of its own faces, not of the viewer's).
+When the real cube shows an algorithm's end state, both cubes show the same pieces and orientation (checked with a simulated cube).
+
+Reliability: the cube's periodic state report is compared with the tracked state - when they differ (a move was lost) the cube's state is adopted;
+a lost connection is reported instead of silently ignoring moves; *Re-read cube* asks for the state again and, for GAN Gen2-4 cubes,
+*Cube is solved: reset* does what Reset in the GAN app does (only press it when the physical cube is solved). A cube whose internal state
+differs from the physical cube (turned while it was off or its battery was swapped) can only be fixed by that reset.

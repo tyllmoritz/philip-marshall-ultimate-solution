@@ -48,6 +48,10 @@ export function initSmartCube(api) {
   let next = null;
   let nextMs = 0;
   let nextWaiting = false;
+  // the live cube follows the orientation and the moves of the algorithm shown on the right
+  let liveBase = ""; // alg that builds the real cube's state from solved
+  let displayRot = []; // whole-cube rotations the live cube has been given
+  let cursor = 0; // where the live cube is in the solution (index of the next token)
   const status = (t, err = false) => { $("bt-status").textContent = t; $("bt-status").classList.toggle("error", err); };
 
   const makePlayer = (host) => {
@@ -77,6 +81,46 @@ export function initSmartCube(api) {
     algIndex = 0;
     showNext();
     check();
+    resetLive();
+  }
+
+  /** Show the real cube again from its current state, in the orientation the first algorithm starts with. */
+  async function resetLive() {
+    if (!live || !pattern) return;
+    const mine = (resetToken = (resetToken ?? 0) + 1);
+    const base = await patternToScramble(pattern);
+    if (mine !== resetToken) return;
+    liveBase = base;
+    live.alg = "";
+    live.experimentalSetupAlg = base;
+    displayRot = [];
+    cursor = 0;
+    alignLive();
+  }
+  let resetToken = 0;
+
+  const solution = () => api.get().current?.result?.solution ?? [];
+  const unit = () => plan?.units[algIndex];
+
+  /** Rotate the live cube like the solution does, up to the next move of the current algorithm. */
+  function emitRotations() {
+    const sol = solution(), u = unit();
+    while (u && cursor < u.e && isRotation(sol[cursor])) {
+      live.experimentalAddMove(sol[cursor]);
+      displayRot.push(sol[cursor]);
+      cursor++;
+    }
+  }
+
+  /** Bring the live cube to the orientation of the solution at the start of the current algorithm. */
+  function alignLive() {
+    const sol = solution(), u = unit();
+    if (!u) return;
+    for (; cursor < u.s; cursor++) {
+      if (isRotation(sol[cursor])) { live.experimentalAddMove(sol[cursor]); displayRot.push(sol[cursor]); }
+    }
+    cursor = u.s;
+    emitRotations();
   }
 
   function showNext() {
@@ -91,6 +135,7 @@ export function initSmartCube(api) {
     nextMs = sol.slice(u.s, u.e).reduce((t, m) => t + moveMs(m), 0);
     next.timestamp = "start";
     next.play();
+    alignLive();
   }
 
   /** Enable "Next algorithm" once the real cube is where this algorithm leads. */
@@ -102,10 +147,37 @@ export function initSmartCube(api) {
     if (done) status("Algorithm done - press Next algorithm.");
   }
 
+  let lastMoveAt = 0;
+
+  /**
+   * The cube reports its own state every now and then. When it disagrees with what the moves added up to
+   * (a move got lost), the cube's state wins.
+   */
+  function onCubeState(fresh) {
+    if (!pattern || Date.now() - lastMoveAt < 1200) return; // moves still coming in
+    if (samePieces(fresh, pattern)) return;
+    pattern = fresh;
+    status("Re-synced with the state the cube reports.");
+    resetLive();
+    check();
+  }
+
   async function onMove(e) {
-    const move = e.latestAlgLeaf;
+    lastMoveAt = Date.now();
+    const move = e.latestAlgLeaf.toString();
     pattern = pattern.applyMove(move);
-    live.experimentalAddMove(move);
+    const sol = solution(), u = unit();
+    if (!plan || !u) {
+      live.experimentalAddMove(move); // no solution to follow: show the move as the cube reports it
+    } else {
+      emitRotations();
+      // the cube reports turns of its own faces; show them on whichever position that face has in the shown orientation
+      const frame = displayRot.length ? rotationOf(displayRot) : null;
+      const position = frame ? Object.keys(frame).find((p) => frame[p] === move[0]) : move[0];
+      live.experimentalAddMove(position + move.slice(1));
+      if (cursor < u.e && !isRotation(sol[cursor])) cursor++; // that was the expected move
+      if (cursor >= u.e || sol.slice(cursor, u.e).every(isRotation)) emitRotations(); // rotate back at the end
+    }
     check();
   }
 
@@ -119,15 +191,18 @@ export function initSmartCube(api) {
     const conn = await connectGanCube(async (_device, isFallback) => (isFallback
       ? window.prompt("The cube's MAC address could not be read automatically.\nEnter it (like AB:12:34:CD:56:EF; Chrome: chrome://bluetooth-internals shows it):")
       : null));
-    const listeners = [];
+    const listeners = [], faceletListeners = [], lostListeners = [];
     const waiting = [];
     let facelets = null;
     const sub = conn.events$.subscribe((ev) => {
       if (ev.type === "FACELETS") {
         facelets = ev.facelets;
         waiting.splice(0).forEach((resolve) => resolve(facelets));
+        faceletListeners.forEach((f) => f(ev.facelets));
       } else if (ev.type === "MOVE") {
         listeners.forEach((f) => f({ latestAlgLeaf: ev.move, timeStamp: Date.now() }));
+      } else if (ev.type === "DISCONNECT") {
+        lostListeners.forEach((f) => f());
       }
     });
     await conn.sendCubeCommand({ type: "REQUEST_FACELETS" });
@@ -138,6 +213,11 @@ export function initSmartCube(api) {
         return faceletsToPattern(kpuzzle, facelets ?? await new Promise((resolve) => waiting.push(resolve)));
       },
       addAlgLeafListener: (f) => listeners.push(f),
+      // the cube also reports its state now and then; used to notice and repair missed moves
+      onState: (f) => faceletListeners.push((str) => f(faceletsToPattern(kpuzzle, str))),
+      onLost: (f) => lostListeners.push(f),
+      readState: () => conn.sendCubeCommand({ type: "REQUEST_FACELETS" }),
+      resetToSolved: () => conn.sendCubeCommand({ type: "REQUEST_RESET" }),
     };
   }
 
@@ -150,18 +230,25 @@ export function initSmartCube(api) {
       kpuzzle ??= await cube3x3x3.kpuzzle();
       puzzle = await (provider ?? connectSmartPuzzle)();
       pattern = await puzzle.getPattern();
-      puzzle.addAlgLeafListener(onMove);
       $("bt").hidden = false;
       live ??= makePlayer("bt-live");
       next ??= makePlayer("bt-next-cube");
+      // listeners go on only now that both cubes exist, so no move can arrive too early and be lost
+      puzzle.addAlgLeafListener((e) => onMove(e).catch((err) => status("Could not show a move: " + err.message, true)));
+      puzzle.onState?.(onCubeState);
+      puzzle.onLost?.(() => { status("Connection to the cube was lost - press Connect again.", true); disconnect(false); });
+      $("bt-reread").hidden = $("bt-reset").hidden = !puzzle.resetToSolved;
       next.experimentalModel.detailedTimelineInfo.addFreshListener((info) => {
         if (nextMs && !nextWaiting && info.timestamp >= nextMs - 5) {
           nextWaiting = true;
           setTimeout(() => { nextWaiting = false; next.timestamp = "start"; next.play(); }, 1000); // repeat
         }
       });
+      liveBase = await patternToScramble(pattern);
       live.alg = "";
-      live.experimentalSetupAlg = await patternToScramble(pattern);
+      live.experimentalSetupAlg = liveBase;
+      displayRot = [];
+      cursor = 0;
       $("bt-connect").textContent = "Disconnect";
       $("bt-connect").disabled = false;
       $("bt-connect-gan").hidden = true;
@@ -181,14 +268,14 @@ export function initSmartCube(api) {
     }
   }
 
-  function disconnect() {
+  function disconnect(say = true) {
     try { puzzle?.disconnect(); } catch {}
     puzzle = null;
     $("bt").hidden = true;
     $("bt-connect").textContent = "Connect smart cube";
     $("bt-connect-gan").hidden = false;
     $("bt-connect-gan").disabled = false;
-    status("Disconnected.");
+    if (say) status("Disconnected.");
   }
 
   $("bt-connect").addEventListener("click", () => (puzzle ? disconnect() : connect()));
@@ -197,10 +284,24 @@ export function initSmartCube(api) {
     if (!pattern) return;
     status("Reading the cube…");
     const alg = await patternToScramble(pattern);
+    liveBase = alg;
     live.alg = "";
     live.experimentalSetupAlg = alg;
+    displayRot = [];
+    cursor = 0;
     api.setScramble(alg);
     status("Cube state taken as the scramble.");
+  });
+  $("bt-reread").addEventListener("click", async () => {
+    status("Reading the cube…");
+    await puzzle?.readState?.();
+  });
+  $("bt-reset").addEventListener("click", async () => {
+    if (!puzzle?.resetToSolved) return;
+    if (!window.confirm("Reset the cube's internal state to SOLVED?\nOnly do this when the physical cube is solved (the same as Reset in the GAN app).")) return;
+    await puzzle.resetToSolved();
+    await puzzle.readState?.();
+    status("Cube reset to solved.");
   });
   $("bt-next").addEventListener("click", () => {
     algIndex++;
@@ -214,6 +315,6 @@ export function initSmartCube(api) {
     $("bt-connect").title = "Web Bluetooth is not available in this browser (try Chrome or Edge)";
   }
   // test hook: connect with a stand-in puzzle
-  window.__marshallSmart = { connect, cubeFrameMoves, get kpuzzle() { return kpuzzle; }, ready: cube3x3x3.kpuzzle().then((k) => (kpuzzle ??= k)) };
+  window.__marshallSmart = { connect, cubeFrameMoves, get live() { return live; }, get next() { return next; }, get kpuzzle() { return kpuzzle; }, ready: cube3x3x3.kpuzzle().then((k) => (kpuzzle ??= k)) };
   return { onSolution: computePlan };
 }
