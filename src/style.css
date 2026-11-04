@@ -102,3 +102,12 @@ a.btn.disabled { opacity: .5; pointer-events: none; }
 .label-row button { padding: 4px 10px; font-size: .9rem; }
 #result.stale { opacity: .5; pointer-events: none; }
 .chip.daisy, .chip.insert { color: var(--ink); }
+
+.bt-cubes { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin: 8px 0; }
+.bt-cubes figure { margin: 0; display: grid; justify-items: center; }
+.bt-cubes figcaption { font-weight: 600; margin-bottom: 4px; }
+.bt-cube { width: 100%; max-width: 300px; }
+.bt-cube twisty-player { width: 100%; max-width: 100%; }
+#bt-status.error { color: var(--err); }
+.bt-panel .label-row { margin-bottom: 0; }
+@media (min-width: 980px) { .bt-panel { grid-column: 1; } }

@@ -1,6 +1,7 @@
 import { Alg } from "cubing/alg";
 import { randomScrambleForEvent } from "cubing/scramble";
 import { TwistyPlayer } from "cubing/twisty";
+import { initSmartCube } from "./smartcube.js";
 
 const $ = (id) => document.getElementById(id);
 const MOVE = /^[UDFBRL][2']?$/;
@@ -66,7 +67,7 @@ function parseScramble(text) {
   } catch (err) {
     throw new Error("Could not read the scramble: " + err.message);
   }
-  const moves = [...alg.expand().experimentalLeafMoves()].map((m) => m.toString());
+  const moves = [...alg.expand().experimentalLeafMoves()].map((m) => m.toString().replace("2'", "2"));
   const bad = moves.find((m) => !MOVE.test(m));
   if (bad) throw new Error(`Unsupported move "${bad}". Use U D F B R L with ' or 2.`);
   return moves;
@@ -317,6 +318,7 @@ function finish(result) {
   useSolution();
   scope = null;
   playFrom(0, 0);
+  smart.onSolution();
 }
 
 const KIND_LABEL = { daisy: "daisy: white edges up around the yellow centre", insert: "half turn into the white cross", edge: "Hedgeslammer / Sledgehammer / sexy move (edge series)", corner: "Niklas (corner series)", setup: "setup / undo turns", undo: "undo", turns: "turns", rotate: "cube rotation", f2l: "F2L algorithm" };
@@ -524,6 +526,14 @@ $("progress").addEventListener("input", () => {
   pin = null;
   player.timestamp = lastTs;
   updateWindow();
+});
+
+const smart = initSmartCube({
+  get: () => ({ current, layout }),
+  setScramble(text) {
+    $("scramble").value = text;
+    solve();
+  },
 });
 
 const OPTION_IDS = ["f2l", "yellow", "beginner"];

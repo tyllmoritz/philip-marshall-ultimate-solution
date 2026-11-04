@@ -51,6 +51,24 @@
       </div>
     </section>
 
+    <section class="panel bt-panel">
+      <div class="label-row">
+        <strong>Smart cube</strong>
+        <button id="bt-connect" type="button">Connect smart cube</button>
+      </div>
+      <p id="bt-status" class="hint" role="status">Connect a Bluetooth cube to see its state next to the next algorithm of the solution.</p>
+      <div id="bt" hidden>
+        <div class="bt-cubes">
+          <figure><figcaption>Your cube</figcaption><div id="bt-live" class="bt-cube"></div></figure>
+          <figure><figcaption id="bt-alg-title">Next algorithm</figcaption><div id="bt-next-cube" class="bt-cube"></div></figure>
+        </div>
+        <div class="row">
+          <button id="bt-take" type="button">Use cube state as scramble</button>
+          <button id="bt-next" type="button" class="primary" disabled>Next algorithm ▶</button>
+        </div>
+      </div>
+    </section>
+
     <section class="panel" id="result" hidden>
       <h2>Solution <span id="total"></span></h2>
       <p class="legend">

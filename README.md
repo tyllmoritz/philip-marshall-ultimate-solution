@@ -110,3 +110,11 @@ arrives is aborted by terminating its worker, and the spare (already warmed up) 
 Options: *Yellow on top from the start* (the solution begins with `x2` and builds the white cross on the bottom), *Beginner white cross*
 (a BFS finds the daisy - the four white edges around the yellow centre, white facing up - and then each petal is turned above its
 centre and dropped into the cross with a half turn; implies yellow on top) and *Partial F2L*.
+
+## Smart cube (Bluetooth)
+
+*Connect smart cube* uses [`cubing/bluetooth`](https://js.cubing.net/cubing/bluetooth/) (Web Bluetooth: Chrome or Edge). Once connected there are two cubes:
+*Your cube* mirrors the real cube, and the second one repeats the **next algorithm** (one series with its setup, not the whole step).
+*Use cube state as scramble* turns the cube's state into a scramble (via cubing's solver) and solves it. *Next algorithm*
+becomes available as soon as the real cube shows the state that algorithm leads to. Solution rotations (`x2`, `y`, …) are not moves for a smart cube
+(its centres never move), so the solution is translated into the cube's own frame before it is compared.
