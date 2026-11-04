@@ -10,7 +10,7 @@ console.log("init ms", (performance.now() - t) | 0, "tables", solver.edgeTable.l
 const EDGE_BITS = (list) => list.reduce((m, i) => m | (1 << i), 0);
 const CORNER_BITS = (list) => list.reduce((m, i) => m | (1 << (12 + i)), 0);
 const PAIR = { 8: 0, 9: 3, 10: 1, 11: 2 }; // middle edge -> its corner next to the cross
-function checkSteps(solver, scr, r, f2l) {
+function checkSteps(solver, scr, r, f2l, yellowTop) {
   // replay through cubing itself so x/y/z rotations are interpreted independently of the solver
   const flatOf = (alg) => {
     const t = kp.algToTransformation(alg).transformationData;
@@ -21,7 +21,7 @@ function checkSteps(solver, scr, r, f2l) {
   for (const step of r.steps) {
     played.push(...step.parts.flatMap((p) => p.moves));
     // from step 2 on the cube is turned over (x2); turn it back to judge piece positions
-    const f = flatOf(played.join(" ") + (masks.length && masks.length < 4 ? " x2" : ""));
+    const f = flatOf(played.join(" ") + (masks.length >= (yellowTop ? 0 : 1) && masks.length < 4 ? " x2" : ""));
     masks.push(solvedMask(f));
     if (masks.length === 4 && !unsolvedOnOneSide(f)) return "step 4: remaining corners are not on one side";
   }
@@ -50,7 +50,10 @@ function checkSteps(solver, scr, r, f2l) {
   return null;
 }
 const n = +process.argv[2] || 20;
-const f2l = process.argv[3] === "f2l";
+const mode = process.argv[3] ?? "";
+const f2l = mode.includes("f2l");
+const yellowTop = mode.includes("yellow") || mode.includes("beginner");
+const beginner = mode.includes("beginner");
 let f2lUsed = 0;
 const totals = [];
 let fail = 0;
@@ -59,7 +62,7 @@ for (let i = 0; i < n; i++) {
   let last = "";
   for (let j = 0; j < 30; j++) { let f; do f = FACES[(Math.random() * 6) | 0]; while (f === last); last = f; scr.push(f + ["", "2", "'"][(Math.random() * 3) | 0]); }
   t = performance.now();
-  const r = solver.solve(scr, { f2l });
+  const r = solver.solve(scr, { f2l, yellowTop, beginner });
   const dt = performance.now() - t;
   if (r.error) { fail++; console.log("FAIL", r.error, scr.join(" ")); continue; }
   // verify with cubing
@@ -67,7 +70,7 @@ for (let i = 0; i < n; i++) {
   const td = kp.algToTransformation(alg).transformationData; const ok = td.EDGES.permutation.every((p,i)=>p===i) && td.EDGES.orientationDelta.every(o=>!o) && td.CORNERS.permutation.every((p,i)=>p===i) && td.CORNERS.orientationDelta.every(o=>!o);
   if (!ok) { fail++; console.log("WRONG", scr.join(" ")); }
   // every step must leave the cube in its target state
-  const problems = checkSteps(solver, scr, r, f2l);
+  const problems = checkSteps(solver, scr, r, f2l, yellowTop);
   if (problems) { fail++; console.log("STEP TARGET", problems, scr.join(" ")); continue; }
   totals.push(r.total);
   if (r.f2lPairs) f2lUsed++;

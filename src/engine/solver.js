@@ -181,7 +181,7 @@ function mergeRotations(stack) {
  * After the white cross the cube is turned over (x2) so that yellow is on top for the rest of
  * the solve; steps 2-5 were solved in that orientation, and the last step turns it back.
  */
-function flipAfterCross(steps) {
+function flipAfterCross(steps, yellowTop = false) {
   const addRotation = (parts, at, note) => {
     const near = parts[at === 0 ? 0 : parts.length - 1];
     if (near?.kind === "rotate") {
@@ -196,7 +196,7 @@ function flipAfterCross(steps) {
   };
   return steps.map((step, i) => {
     let parts = step.parts;
-    if (i === 1) parts = addRotation(parts, 0, "Turn the cube over: yellow on top");
+    if (i === (yellowTop ? 0 : 1)) parts = addRotation(parts, 0, "Turn the cube over: yellow on top");
     if (i === steps.length - 1) parts = addRotation(parts, 1, "Turn the cube back: white on top");
     return { ...step, parts };
   });
@@ -205,6 +205,8 @@ function flipAfterCross(steps) {
 // how awkward a turn is (the movecount coefficient punishes F and B, and rotations, the most)
 const TURN_WEIGHT = { U: 1, R: 1, L: 1, D: 1.1, F: 1.3, B: 1.3 };
 const ROTATE_WEIGHT = 3;
+const FLIP_FACE = { U: "D", D: "U", F: "B", B: "F", R: "R", L: "L" }; // x2
+const flipMove = (m) => FLIP_FACE[m[0]] + m.slice(1);
 const weight = (moves) => moves.reduce((n, m) => n + TURN_WEIGHT[m[0]], 0);
 const MIRROR_FACE = { R: "L", L: "R", U: "U", D: "D", F: "F", B: "B" };
 /** Mirror image (left <-> right) of an algorithm. */
@@ -625,22 +627,134 @@ export class MarshallSolver {
    * candidate if a later step cannot be finished from it).
    */
   solve(scrambleMoves, options = {}) {
+    const { yellowTop = false, beginner = false } = options;
     const start = this.run(this.solvedFlat, scrambleMoves);
+    if (beginner) {
+      this.actionId = 0;
+      try {
+        return { ...this.solveFrom(this.beginnerCross(start), { ...options, yellowTop: true }), crossFace: "D" };
+      } catch (e) {
+        return { error: e.message };
+      }
+    }
     const crosses = new Map();
     for (let variant = 0; variant < 12; variant++) {
       const c = this.solveCross(start, variant);
-      const key = c.moves.join(" ");
-      if (!crosses.has(key)) crosses.set(key, { ...c, score: movecount(c.moves) });
+      const moves = yellowTop ? c.moves.map(flipMove) : c.moves; // as seen with yellow on top
+      const key = moves.join(" ");
+      if (!crosses.has(key)) crosses.set(key, { ...c, moves, score: movecount(moves) });
     }
     let firstError = null;
     for (const cross of [...crosses.values()].sort((a, b) => a.score - b.score)) {
       try {
-        return { ...this.solveFrom(cross, options), crossFace: "U" };
+        return { ...this.solveFrom(cross, options), crossFace: yellowTop ? "D" : "U" };
       } catch (e) {
         firstError ??= e.message;
       }
     }
     return { error: firstError };
+  }
+
+  /**
+   * Beginner cross: with yellow on top, first the "daisy" (the four white edges around the yellow
+   * centre, white facing up), then each petal is turned above its centre and a half turn (180 degrees)
+   * drops it into the white cross. Works in the turned-over frame (white edges are DF DR DB DL = 4..7).
+   */
+  beginnerCross(start) {
+    const flipped = compose(compose(this.flipFlat, start), this.flipFlat);
+    const names = Object.keys(this.moves);
+    // a white edge is one of 24 values (position * 2 + orientation); trans[move][value] = value after the move
+    const trans = names.map((m) => {
+      const t = this.moves[m], inv = new Uint8Array(12), out = new Uint8Array(24);
+      for (let i = 0; i < 12; i++) inv[t.ep[i]] = i;
+      for (let pos = 0; pos < 12; pos++) for (let o = 0; o < 2; o++) {
+        const np = inv[pos];
+        out[pos * 2 + o] = np * 2 + ((o + t.eo[np]) & 1);
+      }
+      return out;
+    });
+    const apply = (st, mi) => st.map((v) => trans[mi][v]);
+    const keyOf = (st) => st[0] + 24 * st[1] + 576 * st[2] + 13824 * st[3];
+    const unkey = (k) => [k % 24, Math.floor(k / 24) % 24, Math.floor(k / 576) % 24, Math.floor(k / 13824)];
+    const startSt = [];
+    for (let piece = 4; piece < 8; piece++) {
+      const pos = flipped.slice(0, 12).indexOf(piece);
+      startSt.push(pos * 2 + flipped[12 + pos]);
+    }
+    const quarters = (m) => (m.length === 1 || m[1] === "'" ? 1 : 0);
+    const need = this.edgeParity(flipped);
+    const done = (st) => st.every((v) => v < 8 && !(v & 1)); // top layer, white facing up
+    const solved = (st) => st.every((v, k) => v === (4 + k) * 2);
+    if (solved(startSt)) return { moves: [], parts: [], state: flipped, flipped: true, name: "The Cross" };
+
+    // BFS over the four white edges; every daisy found is finished by the best order of half turns
+    const SIZE = 24 ** 4;
+    const from = new Int32Array(SIZE).fill(-2), via = new Int8Array(SIZE);
+    const startKey = keyOf(startSt);
+    from[startKey] = -1;
+    let layer = [startKey];
+    const goals = [];
+    let evaluated = 0;
+    const pathOf = (key) => {
+      const out = [];
+      for (let k = key; from[k] >= 0; k = from[k]) out.push(names[via[k]]);
+      return out.reverse();
+    };
+    const perms = [];
+    const permute = (a, rest) => { if (!rest.length) perms.push(a); rest.forEach((x, i) => permute([...a, x], rest.filter((_, j) => j !== i))); };
+    permute([], [0, 1, 2, 3]);
+    const U = names.indexOf("U");
+    const halves = ["F", "R", "B", "L"].map((f) => names.indexOf(f + "2"));
+    const finish = (daisy, base) => { // best order of inserting the petals after a daisy path
+      let best = null;
+      for (const order of perms) {
+        let st = base;
+        const inserts = [];
+        let ok = true;
+        for (const k of order) {
+          let c = 0;
+          while (st[k] >> 1 !== k && c < 4) { st = apply(st, U); c++; }
+          const turns = c === 1 ? ["U"] : c === 2 ? ["U2"] : c === 3 ? ["U'"] : [];
+          st = apply(st, halves[k]);
+          if (st[k] !== (4 + k) * 2) { ok = false; break; }
+          inserts.push([...turns, ["F", "R", "B", "L"][k] + "2"]);
+        }
+        if (!ok) continue;
+        const all = [...daisy, ...inserts.flat()];
+        if (all.reduce((n, m) => n + quarters(m), 0) % 2 !== need) continue;
+        const len = mergeTurns(all).length;
+        if (!best || len < best.len) best = { len, inserts };
+      }
+      return best && { daisy, ...best };
+    };
+    for (let depth = 0; depth < 12 && !(goals.length && depth > goals[0].depth + 1); depth++) {
+      const next = [];
+      for (const key of layer) {
+        const st = unkey(key);
+        if (done(st) && evaluated < 400) {
+          evaluated++;
+          const r = finish(pathOf(key), st);
+          if (r) goals.push({ ...r, depth });
+        }
+        for (let mi = 0; mi < names.length; mi++) {
+          const t = trans[mi];
+          const nk = t[st[0]] + 24 * t[st[1]] + 576 * t[st[2]] + 13824 * t[st[3]];
+          if (from[nk] !== -2) continue;
+          from[nk] = key;
+          via[nk] = mi;
+          next.push(nk);
+        }
+      }
+      layer = next;
+    }
+    if (!goals.length) throw new Error("beginner cross not found");
+    goals.sort((a, b) => a.len - b.len || movecount([...a.daisy, ...a.inserts.flat()]) - movecount([...b.daisy, ...b.inserts.flat()]));
+    const g = goals[0];
+    const parts = [];
+    if (g.daisy.length) parts.push({ kind: "daisy", moves: g.daisy, act: this.actionId++, note: "Daisy: bring the four white edges up around the yellow centre, white facing up" });
+    for (const ins of g.inserts) parts.push({ kind: "insert", moves: ins, act: this.actionId++, note: "Turn the top layer so the white edge is above its centre, then a half turn (180°) drops it into the white cross" });
+    const moves = parts.flatMap((p) => p.moves);
+    return { moves, parts, state: this.run(flipped, moves), flipped: true, name: "The Cross (beginner: daisy, then half turns)" };
   }
 
   step2Candidates(state, f2l) {
@@ -663,8 +777,8 @@ export class MarshallSolver {
     return all.length ? all : this.rank(plain);
   }
 
-  solveFrom(cross, { f2l = false } = {}) {
-    this.actionId = 0;
+  solveFrom(cross, { f2l = false, yellowTop = false } = {}) {
+    if (!cross.parts) this.actionId = 0;
     const edgeTarget = { target: { edges: ALL_EDGES, corners: [] }, goal: 12 };
     // step 4 ends with at least 5 corners home and the rest (2 or 3) on one side, ready for the end game
     const fiveOnASide = (f) => {
@@ -697,13 +811,13 @@ export class MarshallSolver {
       throw new Error("stuck");
     };
     // turn the cube over (x2): the rest is solved with yellow on top, the cross layer below
-    const flipped = compose(compose(this.flipFlat, cross.state), this.flipFlat);
+    const flipped = cross.flipped ? cross.state : compose(compose(this.flipFlat, cross.state), this.flipFlat);
     const chosen = go(0, flipped, { corners: [], pairs: 0 });
     const rawSteps = [
-      { name: "The Cross", parts: cross.moves.length ? [{ kind: "turns", moves: cross.moves }] : [] },
+      { name: cross.name ?? "The Cross", parts: cross.parts ?? (cross.moves.length ? [{ kind: "turns", moves: cross.moves }] : []) },
       ...chosen.map((c) => ({ name: c.name, parts: c.parts })),
     ];
-    const steps = flipAfterCross(optimizeSteps(rawSteps)).map((st) => ({ ...st, mcc: movecount(st.parts.flatMap((p) => p.moves)) }));
+    const steps = flipAfterCross(optimizeSteps(rawSteps), yellowTop).map((st) => ({ ...st, mcc: movecount(st.parts.flatMap((p) => p.moves)) }));
     const all = steps.flatMap((st) => st.parts.flatMap((p) => p.moves));
     return { steps, total: steps.reduce((n, st) => n + st.count, 0), solution: all, mcc: movecount(all), f2lPairs: chosen[0].pairs };
   }

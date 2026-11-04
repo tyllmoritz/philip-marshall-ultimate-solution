@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node scripts/test.mjs 15 && node scripts/test.mjs 15 f2l",
+    "test": "node scripts/test.mjs 15 && node scripts/test.mjs 15 f2l && node scripts/test.mjs 15 yellow && node scripts/test.mjs 15 beginner-f2l",
     "profile": "node scripts/profile.mjs 40"
   },
   "keywords": [],

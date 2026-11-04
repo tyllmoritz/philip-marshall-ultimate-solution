@@ -96,3 +96,9 @@ a.btn.disabled { opacity: .5; pointer-events: none; }
 .mv:hover { background: color-mix(in srgb, var(--accent) 28%, transparent); }
 .mv.now { background: var(--accent); color: #fff; }
 .about ol { padding-left: 1.2rem; } a { color: var(--accent); }
+
+.label-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; }
+.label-row label { margin: 0; }
+.label-row button { padding: 4px 10px; font-size: .9rem; }
+#result.stale { opacity: .5; pointer-events: none; }
+.chip.daisy, .chip.insert { color: var(--ink); }

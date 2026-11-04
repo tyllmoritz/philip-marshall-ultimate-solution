@@ -14,18 +14,43 @@ const player = new TwistyPlayer({
 });
 $("player").appendChild(player);
 
-const worker = new Worker(new URL("./worker.js", import.meta.url), { type: "module" });
+// Two solver workers: a solve in progress is aborted by terminating its worker, while the spare
+// (already initialised) takes the new request; a fresh spare is started in the background.
+const workers = [];
 let nextId = 0;
 let current = null; // { scramble, result }
+let pending = null; // latest request waiting for a worker to be ready
 
-worker.onmessage = (e) => {
-  if (e.data.type === "ready") {
-    $("solve").disabled = false;
-    setStatus("Ready.");
-  } else if (e.data.type === "result" && e.data.id === nextId) {
-    finish(e.data.result);
+function spawn() {
+  const w = { worker: new Worker(new URL("./worker.js", import.meta.url), { type: "module" }), state: "init", id: 0 };
+  w.worker.onmessage = (e) => {
+    if (e.data.type === "ready") {
+      w.state = "idle";
+      if (pending) dispatch(pending);
+      else if (!current) setStatus("Ready.");
+    } else if (e.data.type === "result") {
+      w.state = "idle";
+      if (e.data.id === nextId) finish(e.data.result);
+    }
+  };
+  workers.push(w);
+}
+spawn();
+spawn();
+
+function dispatch(req) {
+  const idle = workers.find((w) => w.state === "idle");
+  if (!idle) { pending = req; return; }
+  pending = null;
+  // abort whatever is still being calculated
+  for (const w of workers.filter((x) => x.state === "busy")) {
+    w.worker.terminate();
+    workers.splice(workers.indexOf(w), 1);
+    spawn();
   }
-};
+  idle.state = "busy";
+  idle.worker.postMessage(req);
+}
 
 function setStatus(text, isError = false) {
   const el = $("status");
@@ -240,8 +265,14 @@ $("random").addEventListener("click", async () => {
   $("random").disabled = false;
   solve();
 });
-$("solve").addEventListener("click", solve);
 
+const options = () => ({
+  f2l: $("f2l").checked,
+  yellowTop: $("yellow").checked || $("beginner").checked,
+  beginner: $("beginner").checked,
+});
+
+/** Solve whatever the scramble field and options say now; any calculation still running is aborted. */
 function solve() {
   let scramble;
   try {
@@ -250,24 +281,37 @@ function solve() {
     setStatus(err.message, true);
     return;
   }
-  if (!scramble.length) { setStatus("Enter a scramble first.", true); return; }
-  $("solve").disabled = true;
-  setStatus("Solving…");
-  show(scramble, []);
   nextId++;
-  worker.postMessage({ id: nextId, scramble, f2l: $("f2l").checked });
+  pending = null;
+  if (!scramble.length) {
+    setStatus("Enter a scramble.");
+    show([], []);
+    $("result").hidden = true;
+    current = { scramble, result: null };
+    return;
+  }
+  setStatus("Solving…");
+  $("result").classList.add("stale");
+  show(scramble, []);
   current = { scramble, result: null };
+  dispatch({ id: nextId, scramble, ...options() });
 }
 
+let typing = null;
+$("scramble").addEventListener("input", () => {
+  clearTimeout(typing);
+  typing = setTimeout(solve, 500);
+});
+
 function finish(result) {
-  $("solve").disabled = false;
+  $("result").classList.remove("stale");
   if (result.error) {
     setStatus("Could not solve: " + result.error, true);
     return;
   }
   current.result = result;
-  const pairs = result.f2lPairs ? ` (cross + ${result.f2lPairs} F2L pairs)` : "";
-  setStatus(`Solved in ${result.total} moves, MCC ${result.mcc.toFixed(1)}${pairs}.`);
+  const extra = result.f2lPairs ? ` (cross + ${result.f2lPairs} F2L pairs)` : "";
+  setStatus(`Solved in ${result.total} moves, MCC ${result.mcc.toFixed(1)}${extra}.`);
   render(current);
   setControls(true);
   useSolution();
@@ -275,7 +319,7 @@ function finish(result) {
   playFrom(0, 0);
 }
 
-const KIND_LABEL = { edge: "Hedgeslammer / Sledgehammer / sexy move (edge series)", corner: "Niklas (corner series)", setup: "setup / undo turns", undo: "undo", turns: "turns", rotate: "cube rotation", f2l: "F2L algorithm" };
+const KIND_LABEL = { daisy: "daisy: white edges up around the yellow centre", insert: "half turn into the white cross", edge: "Hedgeslammer / Sledgehammer / sexy move (edge series)", corner: "Niklas (corner series)", setup: "setup / undo turns", undo: "undo", turns: "turns", rotate: "cube rotation", f2l: "F2L algorithm" };
 
 /** What a part of the solution does, for the // comments in the player and its Twizzle link. */
 function describe(p, parts, k) {
@@ -289,6 +333,7 @@ function describe(p, parts, k) {
   }
   if (p.kind === "corner") return `Niklas${p.moves[0] === "U" ? "" : " inverse"} (corner series): cycles three corners and twists them, edges stay put`;
   if (p.kind === "f2l") return "F2L algorithm: insert a corner-edge pair next to the cross";
+  if (p.kind === "daisy" || p.kind === "insert") return "Beginner cross";
   if (p.kind === "rotate") return series(next) ? "Rotate the cube so the series is done at the front/top" : "Rotate back to the original orientation";
   if (p.kind === "setup") return series(next) || next === "rotate" ? "Setup: bring the pieces into position" : "Undo the setup";
   return k ? "Turn the layer to line up the next pieces" : "Turn the layer to line up the pieces";
@@ -341,7 +386,7 @@ function render({ scramble, result }) {
     let open = [];
     for (const part of step.parts) {
       open.push(part);
-      if (part.kind === "edge" || part.kind === "corner" || part.kind === "f2l" || part.kind === "turns") { groups.push(open); open = []; }
+      if (["edge", "corner", "f2l", "turns", "daisy", "insert"].includes(part.kind)) { groups.push(open); open = []; }
     }
     if (open.length) groups.length ? groups[groups.length - 1].push(...open) : groups.push(open);
     for (const group of groups) {
@@ -481,16 +526,33 @@ $("progress").addEventListener("input", () => {
   updateWindow();
 });
 
+const OPTION_IDS = ["f2l", "yellow", "beginner"];
+const syncOptions = () => {
+  // the beginner cross is built from the yellow side, so it implies yellow on top
+  if ($("beginner").checked) $("yellow").checked = true;
+  $("yellow").disabled = $("beginner").checked;
+};
 try {
-  $("f2l").checked = localStorage.getItem("marshall-f2l") === "1";
+  for (const id of OPTION_IDS) $(id).checked = localStorage.getItem("marshall-" + id) === "1";
 } catch {}
-$("f2l").addEventListener("change", () => {
-  try { localStorage.setItem("marshall-f2l", $("f2l").checked ? "1" : "0"); } catch {}
-});
+syncOptions();
+for (const id of OPTION_IDS) {
+  $(id).addEventListener("change", () => {
+    syncOptions();
+    try { localStorage.setItem("marshall-" + id, $(id).checked ? "1" : "0"); } catch {}
+    solve(); // re-solve with the new option
+  });
+}
 
 $("scramble").value = randomScramble().join(" ");
 show(parseScramble($("scramble").value), []);
-newScramble().then((text) => { if (!current) { $("scramble").value = text; show(parseScramble(text), []); } });
+newScramble().then((text) => {
+  if (!current) { $("scramble").value = text; solve(); }
+});
+// solve the first scramble once a worker is ready
+if (!current) {
+  setStatus("Preparing solver…");
+}
 
 // a click anywhere that is not a move drops the selection
 document.addEventListener("click", (e) => { if (!e.target.closest?.(".mv")) clearHighlight(); });

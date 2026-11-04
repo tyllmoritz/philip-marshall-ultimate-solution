@@ -15,15 +15,24 @@
 
   <main>
     <section class="panel input">
-      <label for="scramble">Scramble</label>
+      <div class="label-row">
+        <label for="scramble">Scramble</label>
+        <button id="random" type="button">Random scramble</button>
+      </div>
       <textarea id="scramble" rows="3" spellcheck="false" placeholder="e.g. R U R' U' F2 D L2 B' …  (faces U D F B R L, with ' or 2)"></textarea>
+      <label class="check" for="yellow">
+        <input type="checkbox" id="yellow" />
+        Yellow on top from the start <span class="hint">(turn the cube over first, build the white cross on the bottom)</span>
+      </label>
+      <label class="check" for="beginner">
+        <input type="checkbox" id="beginner" />
+        Beginner white cross <span class="hint">(daisy around the yellow centre, then 180° turns into the white cross)</span>
+      </label>
       <label class="check" for="f2l">
         <input type="checkbox" id="f2l" />
         Partial F2L in steps 1–2 <span class="hint">(cross + 3 corner–edge pairs, leaving 5 edges for step 3)</span>
       </label>
       <div class="row">
-        <button id="random" type="button">Random scramble</button>
-        <button id="solve" type="button" class="primary" disabled>Solve</button>
         <span id="status" role="status">Preparing solver…</span>
       </div>
     </section>

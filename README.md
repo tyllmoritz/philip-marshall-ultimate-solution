@@ -100,3 +100,13 @@ The edge series are all turned and mirrored forms of the Hedgeslammer (`F R' F' 
 `R U R' U'` and `U R U' R'`, `L' U L U'`, `U L' U' L`, written without turning the cube. When several spellings do the same
 thing the one with the best movecount coefficient wins - which does prefer natural turns (R U L D) to F and B, and punishes
 cube rotations (3.5 each). The cheap table costs weight F/B and rotations the same way so the solver leans that direction while searching.
+
+## Automatic solving and options
+
+There is no Solve button: the scramble is solved as you type (after a short pause), on load, on *Random scramble* and
+whenever an option changes. Calculations run in two web workers; a solve that is still running when a new request
+arrives is aborted by terminating its worker, and the spare (already warmed up) takes over.
+
+Options: *Yellow on top from the start* (the solution begins with `x2` and builds the white cross on the bottom), *Beginner white cross*
+(a BFS finds the daisy - the four white edges around the yellow centre, white facing up - and then each petal is turned above its
+centre and dropped into the cross with a half turn; implies yellow on top) and *Partial F2L*.
