@@ -30,6 +30,7 @@ button.primary { background: var(--accent); color: #fff; border-color: var(--acc
 #status { color: var(--muted); font-size: .92rem; }
 #status.error { color: var(--err); }
 .player-panel { display: grid; justify-items: center; }
+.player-panel > * { max-width: 100%; }
 /* like the ZZ docs: let cubing size the player itself, only cap it to the container */
 #player { width: 100%; max-width: 600px; }
 #player twisty-player { width: 100%; max-width: 100%; }
@@ -74,7 +75,15 @@ code { font: 14px ui-monospace, monospace; overflow-wrap: anywhere; }
 .step { border: 1.5px solid var(--line); border-radius: 10px; padding: 6px 8px 8px; }
 .step-head { display: flex; justify-content: space-between; font-weight: 600; margin-bottom: 4px; }
 .step-count { color: var(--muted); font-weight: 400; }
-.hot { border-color: var(--accent) !important; box-shadow: 0 0 0 1px var(--accent); }
+.unit { border: 1px solid var(--line); border-radius: 8px; padding: 1px 3px; margin: 2px 0; display: inline; box-decoration-break: clone; -webkit-box-decoration-break: clone; cursor: pointer; line-height: 2; }
+/* hover: lighter; active (what is playing): full accent */
+.hot { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 40%, var(--line)); }
+.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.controls { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: center; margin-top: 10px; }
+.controls button { min-width: 44px; padding: 6px 10px; }
+#next-series { transform: none; }
+.controls .repeat { display: flex; gap: 6px; align-items: center; margin: 0 0 0 8px; font-weight: 400; }
+.controls select { font: inherit; padding: 5px 6px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); }
 .mv { cursor: pointer; padding: 0 1px; border-radius: 3px; }
 .mv:hover { background: color-mix(in srgb, var(--accent) 28%, transparent); }
 .mv.now { background: var(--accent); color: #fff; }

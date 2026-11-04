@@ -30,6 +30,21 @@
 
     <section class="panel player-panel">
       <div id="player"></div>
+      <div id="controls" class="controls" role="group" aria-label="Playback">
+        <button id="prev-step" type="button" title="Previous step" disabled>⏮</button>
+        <button id="prev-series" type="button" title="Previous series" disabled>◀</button>
+        <button id="playpause" type="button" class="primary" title="Play" disabled>▶</button>
+        <button id="next-series" type="button" title="Next series" disabled>▶︎</button>
+        <button id="next-step" type="button" title="Next step" disabled>⏭</button>
+        <label class="repeat" for="repeat">Repeat
+          <select id="repeat" disabled>
+            <option value="off">off</option>
+            <option value="series">series</option>
+            <option value="step">step</option>
+            <option value="all">all</option>
+          </select>
+        </label>
+      </div>
     </section>
 
     <section class="panel" id="result" hidden>
@@ -42,7 +57,7 @@
         <span class="chip turns">plain turns</span>
         <span class="chip rotate">cube rotation</span>
       </p>
-      <p class="hint">Click a move to jump to it, a block to play just that part, a step's border to play the step, or the outer border for the whole solution.</p>
+      <p class="hint">Click a move to jump to it (click it again to play from it), a series to play just that series, a step's border to play the step, or the outer border for the whole solution. The player always holds the full solution or one complete step; the active borders show where it is.</p>
       <div id="solution" class="solution" title="Play the full solution">
         <div class="sol-head">Full solution <span id="total2"></span></div>
         <ol id="steps"></ol>

@@ -80,3 +80,10 @@ from phones to a two-column desktop view.
 Besides the player, the page uses [`cubing/alg`](https://js.cubing.net/cubing/alg/) to read the scramble field
 (comments, groupings like `(R U)3`, commutators `[R, U]`, curly quotes) and [`cubing/scramble`](https://js.cubing.net/cubing/scramble/)
 for the Random scramble button (a proper random-state 3x3x3 scramble).
+
+## Playback
+
+The player always holds either the full solution or one complete step. Clicking a series plays only that series inside it
+(then pauses, or loops with Repeat). The borders of the solution, step and series that are currently playing are highlighted
+(hovering uses a lighter shade). Buttons: previous/next step, previous/next series, play/pause, and Repeat: off, series, step or all.
+A second click on a move plays from that move (including it).

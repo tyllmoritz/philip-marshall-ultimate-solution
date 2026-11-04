@@ -70,36 +70,125 @@ function randomScramble(length = 25) {
   return out;
 }
 
-// what the player is showing: global index of its first move and its moves (null before a solve)
+// ---- what the player shows: always the full solution or one complete step ----
+// view = { kind: "full" | "step", step, from, to, moves, cum } (global move indices; cum = start time of each move in ms)
 let view = null;
+let layout = null; // { steps: [{s, e}], units: [{s, e, step}] } for the current solution
 let lit = null; // move index highlighted to follow the animation
+let lastTs = 0;
+let isPlaying = false;
+let scope = null; // {s, e}: a series that was clicked and plays on its own (repeat off)
+let win = null; // {a, b} in ms: what the current playback loops over or stops at
+
+// whole-turn animation lengths used by cubing.js, to turn a move index into a timestamp
+const moveMs = (m) => (m.endsWith("2") ? 1500 : 1000);
+const msOf = (g) => view.cum[Math.min(Math.max(g - view.from, 0), view.moves.length)];
 
 function clearHighlight() {
   lit = null;
   document.querySelectorAll(".mv.now").forEach((e) => e.classList.remove("now"));
 }
 
-function highlight(ts) {
-  clearHighlight();
-  if (!view || !view.moves.length || ts <= 0) return;
-  let t = 0, i = 0;
-  for (; i < view.moves.length; i++) {
-    t += moveMs(view.moves[i]);
-    if (ts <= t + 1) break;
-  }
-  lit = view.from + Math.min(i, view.moves.length - 1);
-  document.querySelector(`.mv[data-i="${lit}"]`)?.classList.add("now");
+/** Global index of the move being played at time ts (the first move at the very start). */
+function indexAt(ts) {
+  if (ts <= 0) return view.from;
+  let k = 0;
+  while (k < view.moves.length - 1 && ts > view.cum[k + 1] + 1) k++;
+  return view.from + k;
 }
-// the highlighted move follows the animation (and the scrubber)
-player.experimentalModel.detailedTimelineInfo.addFreshListener((info) => highlight(info.timestamp));
 
-/** Show setup + alg in the player; with `from`, the alg carries // comments explaining every part. */
-function show(setupMoves, algMoves, from = null) {
-  view = from === null ? null : { from, moves: algMoves };
+/** The active border path: solution (when showing everything) > step > series > the move being played. */
+function markActive(g) {
+  document.querySelectorAll(".active").forEach((e) => e.classList.remove("active"));
+  if (!view) return;
+  if (view.kind === "full") $("solution").classList.add("active");
+  const step = layout.steps.findIndex((x) => g >= x.s && g < x.e);
+  const unit = layout.units.findIndex((x) => g >= x.s && g < x.e);
+  document.querySelector(`.step[data-step="${view.kind === "step" ? view.step : step}"]`)?.classList.add("active");
+  if (view.kind === "full" || (unit >= 0 && layout.units[unit].step === view.step)) document.querySelector(`.unit[data-unit="${unit}"]`)?.classList.add("active");
+}
+
+function onTime(ts) {
+  lastTs = ts;
+  if (!view) return;
+  clearHighlight();
+  const g = indexAt(ts);
+  if (ts > 0) {
+    lit = g;
+    document.querySelector(`.mv[data-i="${g}"]`)?.classList.add("now");
+  }
+  markActive(g);
+  // loop or stop at the end of the playback window
+  if (isPlaying && win && ts >= win.b - 5) {
+    if ($("repeat").value !== "off") {
+      player.timestamp = win.a;
+      player.play();
+    } else if (win.b < view.cum[view.moves.length] - 5) player.pause();
+  }
+}
+// the highlight and borders follow the animation (and the scrubber)
+player.experimentalModel.detailedTimelineInfo.addFreshListener((info) => onTime(info.timestamp));
+player.experimentalModel.playingInfo.addFreshListener((info) => {
+  isPlaying = info.playing;
+  $("playpause").textContent = isPlaying ? "⏸" : "▶";
+  $("playpause").title = isPlaying ? "Pause" : "Play";
+});
+
+/** Plain player state without a solution (e.g. while solving). */
+function show(setupMoves, algMoves) {
+  view = null;
+  layout = null;
+  scope = null;
+  win = null;
   player.experimentalSetupAlg = setupMoves.join(" ");
-  player.alg = from === null ? algMoves.join(" ") : annotate(current.result.steps, from, from + algMoves.length);
+  player.alg = algMoves.join(" ");
   player.timestamp = "start";
   clearHighlight();
+  document.querySelectorAll(".active").forEach((e) => e.classList.remove("active"));
+  setControls(false);
+}
+
+/** Load the full solution or one step into the player (nothing happens if it is already loaded). */
+function useView(kind, step = 0) {
+  const { scramble, result } = current;
+  if (view && view.kind === kind && (kind === "full" || view.step === step)) return;
+  const from = kind === "step" ? layout.steps[step].s : 0;
+  const to = kind === "step" ? layout.steps[step].e : result.solution.length;
+  const moves = result.solution.slice(from, to);
+  const cum = [0];
+  for (const m of moves) cum.push(cum[cum.length - 1] + moveMs(m));
+  view = { kind, step, from, to, moves, cum };
+  player.experimentalSetupAlg = [...scramble, ...result.solution.slice(0, from)].join(" ");
+  player.alg = annotate(result.steps, from, to);
+  player.timestamp = "start";
+  clearHighlight();
+  markActive(from);
+}
+
+/** Make sure the player shows something that contains global moves [s, e). */
+function ensureContains(s, e) {
+  if (view && view.from <= s && e <= view.to) return;
+  useView("step", layout.steps.findIndex((x) => s >= x.s && s < x.e));
+}
+
+function updateWindow() {
+  if (!view) return;
+  const g = indexAt(lastTs + 2); // the move about to be played, so a boundary belongs to what follows
+  const mode = $("repeat").value;
+  const whole = { s: view.from, e: view.to };
+  let range = whole;
+  if (mode === "series") range = layout.units.find((x) => g >= x.s && g < x.e) ?? whole;
+  else if (mode === "step") range = layout.steps.find((x) => g >= x.s && g < x.e) ?? whole;
+  else if (mode === "off" && scope) range = scope;
+  range = { s: Math.max(range.s, view.from), e: Math.min(range.e, view.to) };
+  win = { a: msOf(range.s), b: msOf(range.e) };
+}
+
+function playFrom(ms) {
+  lastTs = ms;
+  updateWindow(); // before seeking, so the time listener never sees the old window
+  player.timestamp = ms;
+  player.play();
 }
 
 $("random").addEventListener("click", async () => {
@@ -138,8 +227,10 @@ function finish(result) {
   const pairs = result.f2lPairs ? ` (cross + ${result.f2lPairs} F2L pairs)` : "";
   setStatus(`Solved in ${result.total} moves, MCC ${result.mcc.toFixed(1)}${pairs}.`);
   render(current);
-  show(current.scramble, result.solution, 0);
-  player.play();
+  setControls(true);
+  useView("full");
+  scope = null;
+  playFrom(0);
 }
 
 const KIND_LABEL = { edge: "edge series", corner: "corner series", setup: "setup", undo: "undo", turns: "turns", rotate: "cube rotation", f2l: "F2L pair" };
@@ -174,76 +265,97 @@ function annotate(steps, from, to) {
   return lines.join("\n").trim();
 }
 
-// whole-turn animation lengths used by cubing.js, to turn a move index into a timestamp
-const moveMs = (m) => (m.endsWith("2") ? 1500 : 1000);
 
-/** Show the full solution, paused right after move `k`. */
-function jumpTo(k) {
-  const { scramble, result } = current;
-  show(scramble, result.solution, 0);
-  player.pause();
-  player.timestamp = result.solution.slice(0, k + 1).reduce((t, m) => t + moveMs(m), 0);
+function setControls(on) {
+  document.querySelectorAll("#controls button, #controls select").forEach((e) => { e.disabled = !on; });
 }
 
 function render({ scramble, result }) {
   $("result").hidden = false;
   $("total").textContent = `— ${result.total} moves`;
   $("total2").textContent = `— ${result.total} moves`;
-  const solution = $("solution");
-  solution.dataset.s = 0;
-  solution.dataset.e = result.solution.length;
   const ol = $("steps");
   ol.replaceChildren();
+  layout = { steps: [], units: [] };
+  view = null;
   let at = 0;
   result.steps.forEach((step, i) => {
     const li = document.createElement("li");
     li.className = "step";
-    li.dataset.s = at;
+    li.dataset.step = i;
+    const stepStart = at;
     const head = document.createElement("div");
     head.className = "step-head";
     head.innerHTML = `<span class="step-name">${i + 1}. ${step.name}</span><span class="step-count" title="Movecount coefficient: estimated execution cost, lower is better">${step.count} moves · MCC ${step.mcc.toFixed(1)}</span>`;
     const body = document.createElement("div");
     if (!step.parts.length) body.textContent = "Already solved.";
-    let prevRotate = null;
+    // a series (with the setup and rotations leading up to it) is one unit; trailing parts join the last unit
+    const groups = [];
+    let open = [];
     for (const part of step.parts) {
-      const chip = document.createElement("span");
-      chip.className = "chip " + part.kind;
-      chip.title = KIND_LABEL[part.kind] + " - click to play";
-      chip.dataset.s = prevRotate && part.kind !== "rotate" ? prevRotate : at; // a series starts at its rotation
-      for (const m of part.moves) {
-        const mv = document.createElement("span");
-        mv.className = "mv";
-        mv.dataset.i = at++;
-        mv.textContent = m;
-        chip.append(mv, " ");
-      }
-      chip.dataset.e = at;
-      prevRotate = part.kind === "rotate" ? chip.dataset.s : null;
-      body.append(chip, " ");
+      open.push(part);
+      if (part.kind === "edge" || part.kind === "corner" || part.kind === "f2l" || part.kind === "turns") { groups.push(open); open = []; }
     }
-    li.dataset.e = at;
+    if (open.length) groups.length ? groups[groups.length - 1].push(...open) : groups.push(open);
+    for (const group of groups) {
+      const unit = document.createElement("span");
+      unit.className = "unit";
+      unit.dataset.unit = layout.units.length;
+      const s = at;
+      for (const part of group) {
+        const chip = document.createElement("span");
+        chip.className = "chip " + part.kind;
+        chip.title = KIND_LABEL[part.kind];
+        for (const m of part.moves) {
+          const mv = document.createElement("span");
+          mv.className = "mv";
+          mv.dataset.i = at++;
+          mv.textContent = m;
+          chip.append(mv, " ");
+        }
+        unit.append(chip, " ");
+      }
+      layout.units.push({ s, e: at, step: i });
+      body.append(unit, " ");
+    }
+    layout.steps.push({ s: stepStart, e: at });
     li.append(head, body);
     ol.append(li);
   });
 }
 
-// innermost clickable thing under the pointer: move > block > step > whole solution
-const target = (e) => e.target.closest?.(".mv, .chip, .step, .solution");
+// innermost clickable thing under the pointer: move > series > step > whole solution
+const target = (e) => e.target.closest?.(".mv, .unit, .step, .solution");
+const unitOf = (el) => layout.units[+el.dataset.unit];
 $("solution").addEventListener("click", async (e) => {
-  if (!current?.result) return;
+  if (!current?.result || !layout) return;
   const t = target(e);
   if (!t) return;
-  const sol = current.result.solution;
   if (t.classList.contains("mv")) {
     const k = +t.dataset.i;
-    // a second click on the highlighted move plays on from it
-    if (lit === k && !(await player.experimentalModel.playingInfo.get()).playing) player.play();
-    else jumpTo(k);
+    ensureContains(k, k + 1);
+    // a second click on the highlighted move plays from that move (including it)
+    if (lit === k && !isPlaying) { scope = null; playFrom(msOf(k)); return; }
+    player.pause();
+    player.timestamp = msOf(k + 1);
+    lastTs = msOf(k + 1);
     return;
   }
-  const s = +t.dataset.s, end = +t.dataset.e;
-  show([...current.scramble, ...sol.slice(0, s)], sol.slice(s, end), s);
-  player.play();
+  if (t.classList.contains("unit")) {
+    const u = unitOf(t);
+    ensureContains(u.s, u.e);
+    scope = { s: u.s, e: u.e };
+    playFrom(msOf(u.s));
+  } else if (t.classList.contains("step")) {
+    const i = +t.dataset.step;
+    useView("step", i);
+    scope = null;
+    playFrom(0);
+  } else {
+    useView("full");
+    scope = null;
+    playFrom(0);
+  }
 });
 let hot = null;
 $("solution").addEventListener("pointerover", (e) => {
@@ -255,6 +367,51 @@ $("solution").addEventListener("pointerover", (e) => {
   hot?.classList.add("hot");
 });
 $("solution").addEventListener("pointerleave", () => { hot?.classList.remove("hot"); hot = null; });
+
+// ---- transport controls ----
+$("playpause").addEventListener("click", () => {
+  if (!view) return;
+  if (isPlaying) { player.pause(); return; }
+  if (scope && (lastTs < msOf(scope.s) - 5 || lastTs >= msOf(scope.e) - 5)) scope = null;
+  playFrom(lastTs >= view.cum[view.moves.length] - 5 ? 0 : lastTs);
+});
+$("repeat").addEventListener("change", updateWindow);
+
+/** Jump to a series or step boundary; keeps playing if it was playing. */
+function go(kind, dir) {
+  if (!view) return;
+  const was = isPlaying;
+  const list = kind === "series" ? layout.units : layout.steps;
+  const inView = list.filter((x) => x.s >= view.from && x.e <= view.to);
+  const eps = 1;
+  let target = null; // global move index to start at
+  if (dir > 0) {
+    target = inView.find((x) => msOf(x.s) > lastTs + eps);
+    if (!target && view.kind === "step") {
+      const next = layout.steps[view.step + 1];
+      if (next) { useView("step", view.step + 1); target = { s: next.s, e: next.e, switched: true }; }
+    }
+  } else {
+    target = [...inView].reverse().find((x) => msOf(x.s) < lastTs - eps);
+    if (!target && view.kind === "step" && view.step > 0) {
+      useView("step", view.step - 1);
+      const prev = (kind === "series" ? layout.units : layout.steps).filter((x) => x.s >= view.from && x.e <= view.to);
+      target = prev[prev.length - 1] ?? { s: view.from, e: view.to };
+    }
+    target ??= { s: view.from, e: view.to };
+  }
+  if (!target) return;
+  if (kind === "series" && scope) scope = { s: target.s, e: target.e };
+  else if (kind === "step") scope = null;
+  lastTs = msOf(target.s);
+  updateWindow();
+  player.timestamp = lastTs;
+  if (was) player.play();
+}
+$("prev-step").addEventListener("click", () => go("step", -1));
+$("prev-series").addEventListener("click", () => go("series", -1));
+$("next-series").addEventListener("click", () => go("series", 1));
+$("next-step").addEventListener("click", () => go("step", 1));
 
 try {
   $("f2l").checked = localStorage.getItem("marshall-f2l") === "1";
