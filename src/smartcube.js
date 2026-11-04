@@ -48,6 +48,7 @@ export function initSmartCube(api) {
   let next = null;
   let nextMs = 0;
   let nextWaiting = false;
+  let cameraLinked = false;
   // the live cube follows the orientation and the moves of the algorithm shown on the right
   let liveBase = ""; // alg that builds the real cube's state from solved
   let displayRot = []; // whole-cube rotations the live cube has been given
@@ -59,6 +60,21 @@ export function initSmartCube(api) {
     $(host).appendChild(p);
     return p;
   };
+
+  /** Dragging or touching either cube turns the other one the same way. */
+  function linkCameras(a, b) {
+    const follow = (from, to) => from.experimentalModel.twistySceneModel.orbitCoordinates.addFreshListener((c) => {
+      if (!c) return;
+      const cur = to.experimentalModel.twistySceneModel.orbitCoordinates;
+      cur.get().then((o) => {
+        if (Math.abs(o.latitude - c.latitude) < 0.01 && Math.abs(o.longitude - c.longitude) < 0.01) return; // already there: no ping-pong
+        to.cameraLatitude = c.latitude;
+        to.cameraLongitude = c.longitude;
+      });
+    });
+    follow(a, b);
+    follow(b, a);
+  }
 
   async function patternToScramble(p) {
     const alg = (await experimentalSolve3x3x3IgnoringCenters(p)).invert();
@@ -233,6 +249,7 @@ export function initSmartCube(api) {
       $("bt").hidden = false;
       live ??= makePlayer("bt-live");
       next ??= makePlayer("bt-next-cube");
+      if (!cameraLinked) { linkCameras(live, next); cameraLinked = true; }
       // listeners go on only now that both cubes exist, so no move can arrive too early and be lost
       puzzle.addAlgLeafListener((e) => onMove(e).catch((err) => status("Could not show a move: " + err.message, true)));
       puzzle.onState?.(onCubeState);
