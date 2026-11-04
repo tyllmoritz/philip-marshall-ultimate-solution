@@ -70,3 +70,7 @@ A `y` rotation also commutes with `U`/`D` turns, so `y2 U y2` collapses to `U`.
 
 Step 4 ends with at least 5 corners home and the remaining 2 or 3 on one side (a common face), so the end game
 starts from a position one corner series can finish; the tests check this.
+
+The player's alg carries `//` comments for every group of moves (step names, setup, rotation, series), so its built-in
+Twizzle button opens the solution with explanations. The highlighted move follows the animation, and the layout adapts
+from phones to a two-column desktop view.

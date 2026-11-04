@@ -52,18 +52,36 @@ function randomScramble(length = 25) {
   return out;
 }
 
-let selected = null; // move index highlighted by a click
+// what the player is showing: global index of its first move and its moves (null before a solve)
+let view = null;
+let lit = null; // move index highlighted to follow the animation
 
-function clearSelection() {
-  selected = null;
+function clearHighlight() {
+  lit = null;
   document.querySelectorAll(".mv.now").forEach((e) => e.classList.remove("now"));
 }
 
-function show(setupMoves, algMoves) {
-  clearSelection();
+function highlight(ts) {
+  clearHighlight();
+  if (!view || !view.moves.length || ts <= 0) return;
+  let t = 0, i = 0;
+  for (; i < view.moves.length; i++) {
+    t += moveMs(view.moves[i]);
+    if (ts <= t + 1) break;
+  }
+  lit = view.from + Math.min(i, view.moves.length - 1);
+  document.querySelector(`.mv[data-i="${lit}"]`)?.classList.add("now");
+}
+// the highlighted move follows the animation (and the scrubber)
+player.experimentalModel.detailedTimelineInfo.addFreshListener((info) => highlight(info.timestamp));
+
+/** Show setup + alg in the player; with `from`, the alg carries // comments explaining every part. */
+function show(setupMoves, algMoves, from = null) {
+  view = from === null ? null : { from, moves: algMoves };
   player.experimentalSetupAlg = setupMoves.join(" ");
-  player.alg = algMoves.join(" ");
+  player.alg = from === null ? algMoves.join(" ") : annotate(current.result.steps, from, from + algMoves.length);
   player.timestamp = "start";
+  clearHighlight();
 }
 
 $("random").addEventListener("click", () => {
@@ -100,60 +118,57 @@ function finish(result) {
   const pairs = result.f2lPairs ? ` (cross + ${result.f2lPairs} F2L pairs)` : "";
   setStatus(`Solved in ${result.total} moves, MCC ${result.mcc.toFixed(1)}${pairs}.`);
   render(current);
-  show(current.scramble, result.solution);
+  show(current.scramble, result.solution, 0);
   player.play();
 }
 
 const KIND_LABEL = { edge: "edge series", corner: "corner series", setup: "setup", undo: "undo", turns: "turns", rotate: "cube rotation", f2l: "F2L pair" };
 
-/** Twizzle editor link: the solution with a `// comment` after every group of moves. */
-function twizzleUrl(scramble, steps) {
-  const SERIES = ["edge", "corner"];
-  const lines = ["// Solution: white cross first, series always at the front/top"];
+/** What a part of the solution does, for the // comments in the player and its Twizzle link. */
+function describe(p, parts, k) {
+  const next = parts[k + 1]?.kind;
+  const series = (kind) => kind === "edge" || kind === "corner";
+  if (p.note) return p.note;
+  if (p.kind === "edge") return "Edge series: cycles three edge pieces (corners get disturbed)";
+  if (p.kind === "corner") return "Corner series: cycles three corners and twists them (edges stay put)";
+  if (p.kind === "f2l") return "F2L algorithm: insert a corner-edge pair next to the cross";
+  if (p.kind === "rotate") return series(next) ? "Rotate the cube so the series is done at the front/top" : "Rotate back to the original orientation";
+  if (p.kind === "setup") return series(next) || next === "rotate" ? "Setup: bring the pieces into position" : "Undo the setup";
+  return k ? "Turn the layer to line up the next pieces" : "Turn the layer to line up the pieces";
+}
+
+/** The solution moves [from, to) as alg text with a `// comment` after every group of moves. */
+function annotate(steps, from, to) {
+  const lines = [];
+  let at = 0;
   steps.forEach((step, i) => {
-    lines.push("", `// Step ${i + 1}: ${step.name}`);
-    if (!step.parts.length) lines.push("// already solved");
+    const out = [];
     step.parts.forEach((p, k) => {
-      const next = step.parts[k + 1]?.kind;
-      const prev = step.parts[k - 1]?.kind;
-      let note = p.note;
-      if (note) {}
-      else if (p.kind === "edge") note = "Edge series: cycles three edge pieces (corners get disturbed)";
-      else if (p.kind === "corner") note = "Corner series: cycles three corners and twists them (edges stay put)";
-      else if (p.kind === "f2l") note = "F2L algorithm: insert a corner-edge pair next to the cross";
-      else if (p.kind === "rotate") note = SERIES.includes(next) ? "Rotate the cube so the series is done at the front/top" : "Rotate back to the original orientation";
-      else if (p.kind === "setup") note = SERIES.includes(next) || next === "rotate" ? "Setup: bring the pieces into position" : "Undo the setup";
-      else note = prev ? "Turn the layer to line up the next pieces" : "Turn the layer to line up the pieces";
-      lines.push(`${p.moves.join(" ")} // ${note}`);
+      const s = at, e = at + p.moves.length;
+      at = e;
+      const lo = Math.max(s, from), hi = Math.min(e, to);
+      if (lo < hi) out.push(`${p.moves.slice(lo - s, hi - s).join(" ")} // ${describe(p, step.parts, k)}`);
     });
+    if (out.length) lines.push(`// Step ${i + 1}: ${step.name}`, ...out, "");
   });
-  const q = new URLSearchParams({ alg: lines.join("\n"), "setup-alg": scramble.join(" ") });
-  return "https://alpha.twizzle.net/edit/?" + q;
+  return lines.join("\n").trim();
 }
 
 // whole-turn animation lengths used by cubing.js, to turn a move index into a timestamp
 const moveMs = (m) => (m.endsWith("2") ? 1500 : 1000);
 
-function play(setupMoves, algMoves) {
-  show(setupMoves, algMoves);
-  player.play();
-}
-
 /** Show the full solution, paused right after move `k`. */
 function jumpTo(k) {
   const { scramble, result } = current;
-  show(scramble, result.solution);
+  show(scramble, result.solution, 0);
   player.pause();
   player.timestamp = result.solution.slice(0, k + 1).reduce((t, m) => t + moveMs(m), 0);
-  selected = k;
-  document.querySelector(`.mv[data-i="${k}"]`)?.classList.add("now");
 }
 
 function render({ scramble, result }) {
   $("result").hidden = false;
   $("total").textContent = `— ${result.total} moves`;
   $("total2").textContent = `— ${result.total} moves`;
-  $("twizzle").href = twizzleUrl(scramble, result.steps);
   const solution = $("solution");
   solution.dataset.s = 0;
   solution.dataset.e = result.solution.length;
@@ -194,19 +209,21 @@ function render({ scramble, result }) {
 
 // innermost clickable thing under the pointer: move > block > step > whole solution
 const target = (e) => e.target.closest?.(".mv, .chip, .step, .solution");
-$("solution").addEventListener("click", (e) => {
+$("solution").addEventListener("click", async (e) => {
   if (!current?.result) return;
   const t = target(e);
   if (!t) return;
   const sol = current.result.solution;
   if (t.classList.contains("mv")) {
-    // first click jumps there, a second click on the same move plays on from it
-    if (selected === +t.dataset.i) player.play();
-    else jumpTo(+t.dataset.i);
+    const k = +t.dataset.i;
+    // a second click on the highlighted move plays on from it
+    if (lit === k && !(await player.experimentalModel.playingInfo.get()).playing) player.play();
+    else jumpTo(k);
     return;
   }
   const s = +t.dataset.s, end = +t.dataset.e;
-  play([...current.scramble, ...sol.slice(0, s)], sol.slice(s, end));
+  show([...current.scramble, ...sol.slice(0, s)], sol.slice(s, end), s);
+  player.play();
 });
 let hot = null;
 $("solution").addEventListener("pointerover", (e) => {
@@ -230,4 +247,4 @@ $("scramble").value = randomScramble().join(" ");
 show(parseScramble($("scramble").value), []);
 
 // a click anywhere that is not a move drops the selection
-document.addEventListener("click", (e) => { if (!e.target.closest?.(".mv")) clearSelection(); });
+document.addEventListener("click", (e) => { if (!e.target.closest?.(".mv")) clearHighlight(); });

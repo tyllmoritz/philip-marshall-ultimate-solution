@@ -8,8 +8,8 @@
     --accent: #6db0ee; --edge: #6db0ee; --corner: #f0a070; --setup: #8d8c84; --f2l: #6fcf80; --err: #ff8a80; color-scheme: dark; }
 }
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 system-ui, sans-serif; padding-inline: 16px; }
-header, main { max-width: 760px; margin-inline: auto; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 system-ui, sans-serif; padding-inline: clamp(12px, 3vw, 32px); }
+header, main { max-width: 1180px; margin-inline: auto; }
 header { padding-block: 28px 8px; }
 h1 { margin: 0; font-size: 1.8rem; }
 h2 { margin: 0 0 8px; font-size: 1.15rem; }
@@ -31,7 +31,31 @@ button.primary { background: var(--accent); color: #fff; border-color: var(--acc
 #status.error { color: var(--err); }
 .player-panel { display: grid; justify-items: center; }
 /* like the ZZ docs: let cubing size the player itself, only cap it to the container */
-#player twisty-player { max-width: 100%; }
+#player { width: 100%; max-width: 600px; }
+#player twisty-player { width: 100%; max-width: 100%; }
+.player-panel { overflow: hidden; }
+.chip { max-width: 100%; overflow-wrap: anywhere; }
+.step-head { flex-wrap: wrap; gap: 0 12px; }
+#steps, .solution, .step { min-width: 0; }
+.panel { min-width: 0; }
+textarea { max-width: 100%; }
+/* wide screens: input + cube on the left, the solution next to them */
+@media (min-width: 980px) {
+  main { grid-template-columns: minmax(340px, 5fr) minmax(0, 6fr); align-items: start; }
+  .input, .player-panel { grid-column: 1; }
+  #result { grid-column: 2; grid-row: 1 / span 2; }
+  .about { grid-column: 1 / -1; }
+}
+@media (max-width: 600px) {
+  h1 { font-size: 1.45rem; }
+  .panel { padding: 12px; }
+  .solution { padding: 6px 6px 8px; }
+  .step { padding: 5px 6px 7px; }
+  .chip { font-size: 13px; padding: 1px 5px; }
+  .mv { padding: 2px 1px; }
+  .row button { flex: 1 1 auto; }
+  #status { flex-basis: 100%; }
+}
 code { font: 14px ui-monospace, monospace; overflow-wrap: anywhere; }
 .legend { margin: 0 0 8px; display: flex; flex-wrap: wrap; gap: 6px; font-size: .85rem; }
 .chip { display: inline-block; padding: 1px 8px; margin: 2px 0; border-radius: 6px; border: 1px solid currentColor; font: 14px ui-monospace, monospace; }
@@ -39,7 +63,6 @@ code { font: 14px ui-monospace, monospace; overflow-wrap: anywhere; }
 .chip.f2l { color: var(--f2l); }
 .chip.edge { color: var(--edge); } .chip.corner { color: var(--corner); }
 .chip.rotate { color: var(--ink); border-style: dotted; }
-.twizzle { margin: 8px 0 0; font-size: .9rem; }
 .chip.setup, .chip.undo { color: var(--setup); border-style: dashed; } .chip.turns { color: var(--ink); }
 #steps { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 10px; }
 .hint { color: var(--muted); font-size: .88rem; margin: 0 0 8px; }
