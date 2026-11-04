@@ -42,9 +42,11 @@
         <span class="chip turns">plain turns</span>
         <span class="chip rotate">cube rotation</span>
       </p>
-      <ol id="steps"></ol>
-      <h3>Full solution</h3>
-      <button id="plain" type="button" class="full" title="Play the full solution"></button>
+      <p class="hint">Click a move to jump to it, a block to play just that part, a step's border to play the step, or the outer border for the whole solution.</p>
+      <div id="solution" class="solution" title="Play the full solution">
+        <div class="sol-head">Full solution <span id="total2"></span></div>
+        <ol id="steps"></ol>
+      </div>
       <p class="twizzle"><a id="twizzle" href="https://alpha.twizzle.net/edit/" target="_blank" rel="noopener">Open in Twizzle with comments explaining every move</a></p>
     </section>
 
@@ -57,7 +59,7 @@
         <li><b>Five corner pieces</b> — the Corner Series (<code>U R U' L' U R' U' L</code> and its mirrors/rotations) cycles three corners without touching any edge.</li>
         <li><b>The End Game</b> — the last three corners fall into place together.</li>
       </ol>
-      <p>Method and name: <a href="https://www.helm.lu/cube/MarshallPhilipp/">Philip Marshall's solution</a>. The solver picks, at each step, the cheapest series-with-setup that places more pieces without disturbing finished ones,. It is an independent implementation, so move counts differ from the original write-up. Cube rendering by <a href="https://js.cubing.net/cubing/">cubing.js</a>.</p>
+      <p>Method and name: <a href="https://www.helm.lu/cube/MarshallPhilipp/">Philip Marshall's solution</a>. The solver picks, at each step, the cheapest series-with-setup that places more pieces without disturbing finished ones. It is an independent implementation, so move counts differ from the original write-up. Cube rendering by <a href="https://js.cubing.net/cubing/">cubing.js</a>.</p>
     </section>
   </main>
 

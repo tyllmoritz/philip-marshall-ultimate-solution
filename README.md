@@ -54,3 +54,9 @@ Rotations are not counted as moves, and because the series are fixed text, no tu
 (solutions are longer than before). The result panel links to the Twizzle editor with a `//` comment on every group of moves.
 
 After step 1 the cube is turned over (`x2`) so yellow is on top; steps 2-5 are solved in that orientation and the last step turns the cube back.
+
+## Clickable solution
+
+The solution is shown as nested borders: the outer border plays the full solution, a step's border plays that step,
+a block (series, setup, rotation) plays just that part, and a single move jumps to the cube state right after it
+(the full solution stays loaded, so you can keep stepping from there).

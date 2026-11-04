@@ -123,42 +123,88 @@ function twizzleUrl(scramble, steps) {
   return "https://alpha.twizzle.net/edit/?" + q;
 }
 
+// whole-turn animation lengths used by cubing.js, to turn a move index into a timestamp
+const moveMs = (m) => (m.endsWith("2") ? 1500 : 1000);
+
+function play(setupMoves, algMoves) {
+  show(setupMoves, algMoves);
+  player.play();
+}
+
+/** Show the full solution, paused right after move `k`. */
+function jumpTo(k) {
+  const { scramble, result } = current;
+  show(scramble, result.solution);
+  player.pause();
+  player.timestamp = result.solution.slice(0, k + 1).reduce((t, m) => t + moveMs(m), 0);
+  document.querySelectorAll(".mv.now").forEach((e) => e.classList.remove("now"));
+  document.querySelector(`.mv[data-i="${k}"]`)?.classList.add("now");
+}
+
 function render({ scramble, result }) {
   $("result").hidden = false;
   $("total").textContent = `— ${result.total} moves`;
-  $("plain").textContent = result.solution.join(" ");
+  $("total2").textContent = `— ${result.total} moves`;
   $("twizzle").href = twizzleUrl(scramble, result.steps);
+  const solution = $("solution");
+  solution.dataset.s = 0;
+  solution.dataset.e = result.solution.length;
   const ol = $("steps");
   ol.replaceChildren();
-  let before = [];
+  let at = 0;
   result.steps.forEach((step, i) => {
     const li = document.createElement("li");
-    const head = document.createElement("button");
-    head.type = "button";
+    li.className = "step";
+    li.dataset.s = at;
+    const head = document.createElement("div");
     head.className = "step-head";
     head.innerHTML = `<span class="step-name">${i + 1}. ${step.name}</span><span class="step-count">${step.count} moves</span>`;
     const body = document.createElement("div");
-    body.className = "step-body";
     if (!step.parts.length) body.textContent = "Already solved.";
+    let prevRotate = null;
     for (const part of step.parts) {
       const chip = document.createElement("span");
       chip.className = "chip " + part.kind;
-      chip.title = KIND_LABEL[part.kind];
-      chip.textContent = part.moves.join(" ");
+      chip.title = KIND_LABEL[part.kind] + " - click to play";
+      chip.dataset.s = prevRotate && part.kind !== "rotate" ? prevRotate : at; // a series starts at its rotation
+      for (const m of part.moves) {
+        const mv = document.createElement("span");
+        mv.className = "mv";
+        mv.dataset.i = at++;
+        mv.textContent = m;
+        chip.append(mv, " ");
+      }
+      chip.dataset.e = at;
+      prevRotate = part.kind === "rotate" ? chip.dataset.s : null;
       body.append(chip, " ");
     }
-    const setupMoves = [...scramble, ...before];
-    const stepMoves = step.parts.flatMap((p) => p.moves);
-    head.addEventListener("click", () => { show(setupMoves, stepMoves); player.play(); });
-    before = before.concat(stepMoves);
+    li.dataset.e = at;
     li.append(head, body);
     ol.append(li);
   });
 }
 
-$("plain").addEventListener("click", () => {
-  if (current?.result) { show(current.scramble, current.result.solution); player.play(); }
+// innermost clickable thing under the pointer: move > block > step > whole solution
+const target = (e) => e.target.closest?.(".mv, .chip, .step, .solution");
+$("solution").addEventListener("click", (e) => {
+  if (!current?.result) return;
+  const t = target(e);
+  if (!t) return;
+  const sol = current.result.solution;
+  if (t.classList.contains("mv")) { jumpTo(+t.dataset.i); return; }
+  const s = +t.dataset.s, end = +t.dataset.e;
+  play([...current.scramble, ...sol.slice(0, s)], sol.slice(s, end));
 });
+let hot = null;
+$("solution").addEventListener("pointerover", (e) => {
+  let t = target(e);
+  if (t?.classList.contains("mv")) t = null; // moves have their own highlight
+  if (t === hot) return;
+  hot?.classList.remove("hot");
+  hot = t;
+  hot?.classList.add("hot");
+});
+$("solution").addEventListener("pointerleave", () => { hot?.classList.remove("hot"); hot = null; });
 
 try {
   $("f2l").checked = localStorage.getItem("marshall-f2l") === "1";

@@ -33,8 +33,6 @@ button.primary { background: var(--accent); color: #fff; border-color: var(--acc
 /* like the ZZ docs: let cubing size the player itself, only cap it to the container */
 #player twisty-player { max-width: 100%; }
 code { font: 14px ui-monospace, monospace; overflow-wrap: anywhere; }
-button.full { display: block; width: 100%; text-align: left; font: 14px ui-monospace, monospace; overflow-wrap: anywhere; }
-button.full::before { content: "\25B6  "; color: var(--accent); }
 .legend { margin: 0 0 8px; display: flex; flex-wrap: wrap; gap: 6px; font-size: .85rem; }
 .chip { display: inline-block; padding: 1px 8px; margin: 2px 0; border-radius: 6px; border: 1px solid currentColor; font: 14px ui-monospace, monospace; }
 .legend .chip { font: inherit; font-size: .8rem; }
@@ -43,8 +41,18 @@ button.full::before { content: "\25B6  "; color: var(--accent); }
 .chip.rotate { color: var(--ink); border-style: dotted; }
 .twizzle { margin: 8px 0 0; font-size: .9rem; }
 .chip.setup, .chip.undo { color: var(--setup); border-style: dashed; } .chip.turns { color: var(--ink); }
-#steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
-.step-head { display: flex; justify-content: space-between; width: 100%; text-align: left; font-weight: 600; }
+#steps { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 10px; }
+.hint { color: var(--muted); font-size: .88rem; margin: 0 0 8px; }
+/* nested, clickable borders: solution > step > block > move */
+.solution, .step, .chip { cursor: pointer; }
+.solution { border: 2px solid var(--line); border-radius: 12px; padding: 8px 10px 10px; }
+.sol-head { font-weight: 700; }
+.sol-head::before { content: "\25B6  "; color: var(--accent); }
+.step { border: 1.5px solid var(--line); border-radius: 10px; padding: 6px 8px 8px; }
+.step-head { display: flex; justify-content: space-between; font-weight: 600; margin-bottom: 4px; }
 .step-count { color: var(--muted); font-weight: 400; }
-.step-body { padding: 6px 4px 0; }
+.hot { border-color: var(--accent) !important; box-shadow: 0 0 0 1px var(--accent); }
+.mv { cursor: pointer; padding: 0 1px; border-radius: 3px; }
+.mv:hover { background: color-mix(in srgb, var(--accent) 28%, transparent); }
+.mv.now { background: var(--accent); color: #fff; }
 .about ol { padding-left: 1.2rem; } a { color: var(--accent); }
