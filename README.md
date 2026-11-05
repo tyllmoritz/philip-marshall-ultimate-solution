@@ -116,10 +116,9 @@ centre and dropped into the cross with a half turn; implies yellow on top) and *
 One *Connect smart cube* button for every brand: [`smartcube-web-bluetooth`](https://github.com/poliva/smartcube-web-bluetooth) (MIT; a multi-brand successor of gan-web-bluetooth) recognises the cube - GAN Gen1-Gen4, MoYu, Giiker/Mi, GoCube, QiYi, XMD Tornado - and reports the same events for all of them.
 Facelets snapshots *from the cube* are trusted; states the driver merely added up from moves are ignored. The newer GAN protocols need the cube's MAC address; the browser reads it from the advertisement if it can, otherwise you are asked for it. Facelets from the cube are converted to a cubing.js pattern in `src/facelets.js`.
 
-*Connect smart cube* uses [`cubing/bluetooth`](https://js.cubing.net/cubing/bluetooth/) (Web Bluetooth: Chrome or Edge). Once connected there are two cubes:
-*Your cube* mirrors the real cube, and the second one repeats the **next algorithm** (one series with its setup, not the whole step).
-*Use cube state as scramble* turns the cube's state into a scramble (via cubing's solver) and solves it. *Next algorithm*
-becomes available as soon as the real cube shows the state that algorithm leads to. Solution rotations (`x2`, `y`, …) are not moves for a smart cube
+Web Bluetooth needs Chrome or Edge. Once connected there are two cubes: *Your cube* mirrors the real cube, and the solution cube loops what is left of the
+current algorithm (one series with its setup, not the whole step). *use current scramble* turns the cube's state into a scramble (via cubing's solver) and solves it;
+*done: next algorithm* goes on once the real cube shows the state the algorithm leads to. Solution rotations (`x2`, `y`, ...) are not moves for a smart cube
 (its centres never move), so the solution is translated into the cube's own frame before it is compared.
 
 ### Orientation sync and reliability
