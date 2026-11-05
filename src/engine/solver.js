@@ -778,7 +778,7 @@ export class MarshallSolver {
     const mid = { target: { edges: MIDDLE, corners: [] }, goal: 3 };
     const plain = (pick) => {
       const r = this.climb(state, this.edgeTable.step2, { ...mid, pick });
-      return { name: "Center Section Edge Pieces", parts: this.actionsToParts(r.actions, "edge"), state: r.state, corners: [], pairs: 0 };
+      return { name: "3 Center Section Edge Pieces", parts: this.actionsToParts(r.actions, "edge"), state: r.state, corners: [], pairs: 0 };
     };
     if (!f2l) return this.rank(plain);
     // Partial F2L: three corner-edge pairs next to the cross, then the other five edges with
@@ -788,7 +788,7 @@ export class MarshallSolver {
       const r = plain(pick);
       const corners = this.solvedEdges(r.state, MIDDLE).slice(0, 3).map((e) => PAIR_CORNER[e]);
       const rc = this.climb(r.state, this.cornerTable, { target: { edges: [], corners }, goal: corners.length });
-      return { name: "Center Section Edge Pieces + 3 F2L pairs", parts: [...r.parts, ...this.actionsToParts(rc.actions, "corner")], state: rc.state, corners, pairs: corners.length };
+      return { name: "3 F2L Pairs", parts: [...r.parts, ...this.actionsToParts(rc.actions, "corner")], state: rc.state, corners, pairs: corners.length };
     };
     const all = [...this.rank((pick) => this.f2lByAlgorithms(state, pick)), ...this.rank(bySeries)].sort((a, b) => a.score - b.score);
     return all.length ? all : this.rank(plain);
@@ -817,10 +817,19 @@ export class MarshallSolver {
     const leavesSingle = (c) => (this.endgameSingle(c.state) ? 0 : 25);
     const stages = [
       (s) => this.step2Candidates(s, f2l),
+      // step 3: down to the key position - one middle-layer edge and two top-layer edges are wrong and one
+      // hedgeslammer / sledgehammer / sexy move (no setup) finishes them. Step 4 is that one series.
       (s, ctx) => this.rank((pick) => {
-        const r = ctx.corners.length ? this.finishEdges(s, ctx.corners, edgeTarget, pick) : this.climb(s, this.edgeParity(s) ? this.edgeTable.withOdd : this.edgeTable, { ...edgeTarget, pick });
+        const need = ctx.corners.reduce((m, i) => m | (1 << (12 + i)), 0);
+        let r;
+        try {
+          r = this.reachKey(s, ctx.corners, edgeTarget, pick);
+        } catch {
+          r = this.finishEdges(s, ctx.corners, edgeTarget, pick); // no key position within reach: solve the edges outright
+        }
         return { parts: this.actionsToParts(r.actions, "edge"), state: r.state };
-      }).map((c) => ({ ...c, name: "Top Edge Pieces" })),
+      }, 8).map((c) => ({ ...c, name: "Top Edge Pieces" })),
+      (s, ctx) => this.lastEdges(s, ctx.corners).map((c) => ({ ...c, name: "Last Three Edge Pieces" })),
       cornerStage("Five Corner Pieces", 5, fiveOnASide, 10, leavesSingle),
       endGame,
     ];
@@ -849,11 +858,113 @@ export class MarshallSolver {
   }
 
   /** Corner-preserving finish of the five remaining edges after the pairs are in. */
-  finishEdges(state, corners, edgeTarget, pick = 0) {
+  finishEdges(state, corners, edgeTarget, pick = 0, count = null) {
     const need = corners.reduce((m, i) => m | (1 << (12 + i)), 0);
     const source = this.edgeParity(state) ? this.edgeTable.withOdd : this.edgeTable;
-    const keep = source.filter((e) => !(need & ~e.mask));
-    return this.climb(state, keep, { ...edgeTarget, pick });
+    const keep = need ? source.filter((e) => !(need & ~e.mask)) : source;
+    return this.climb(state, keep, { ...edgeTarget, pick, ...(count ? { count } : {}) });
+  }
+
+  /**
+   * Table entries (a series with its setup) that finish all edges from f, cheapest first. `need` = corners that must stay put.
+   * A bare Hedgeslammer / Sledgehammer / sexy move is the cheapest kind of entry, so those come first when they fit.
+   */
+  singleFinishers(f, need) {
+    const odd = this.edgeParity(f);
+    const key = odd + ":" + need;
+    this._finisherIndex ??= new Map();
+    let index = this._finisherIndex.get(key);
+    const cfg = { n: 12, p: 0, o: 12, mod: 2 };
+    if (!index) {
+      const source = odd ? this.edgeTable.withOdd : this.edgeTable;
+      index = new Map();
+      for (const e of source) {
+        if (!e.series.length || (need & ~e.mask)) continue;
+        const h = hashPart(e.flat, cfg);
+        if (!index.has(h)) index.set(h, []);
+        index.get(h).push(e);
+      }
+      this._finisherIndex.set(key, index);
+    }
+    const want = invertPart(f, cfg);
+    return (index.get(hashPart(want, cfg)) ?? []).filter((e) => samePart(e.flat, want, cfg));
+  }
+
+  /** The key position of step 3: one middle-layer edge and two last-layer edges are wrong, and one series finishes them. */
+  keyCount(need) {
+    return (f) => {
+      let n = 0, mid = 0, last = 0;
+      for (let i = 0; i < 12; i++) {
+        if (f[i] === i && f[12 + i] === 0) n++;
+        else if (i >= 8) mid++;
+        else if (i < 4) last++;
+      }
+      return n === 9 && mid === 1 && last === 2 && this.singleFinishers(f, need).length ? 12 : n;
+    };
+  }
+
+  /**
+   * Series (with setup) until the key position is reached: the first depth at which one table entry lands in it
+   * wins, so the fewest series are used; `pick` takes alternatives. The optional aligning top-layer turn of the
+   * final series closes the step.
+   */
+  reachKey(state, corners, edgeTarget, pick = 0) {
+    const need = corners.reduce((m, i) => m | (1 << (12 + i)), 0);
+    const source = this.edgeParity(state) ? this.edgeTable.withOdd : this.edgeTable;
+    const table = need ? source.filter((e) => !(need & ~e.mask)) : source;
+    const cfg = { n: 12, p: 0, o: 12, mod: 2 };
+    const solved = (f) => { for (let i = 0; i < 12; i++) if (f[i] !== i || f[12 + i] !== 0) return false; return true; };
+    const count = this.keyCount(need);
+    const buf = new Uint8Array(N);
+    const turnAction = (m) => ({ flat: this.flatMoves[m], pre: [m], setup: [], series: [], cost: weight([m]), mask: solvedMask(this.flatMoves[m]) });
+    // an aligning U turn that the finishing series starts with belongs to this step
+    const align = (s) => {
+      const best = this.singleFinishers(s, need).slice().sort((a, b) => a.pre.length - b.pre.length)[0];
+      return best && best.pre.length === 1 && best.pre[0][0] === "U" && !best.setup.length ? best.pre[0] : null;
+    };
+    const actions = [];
+    let s = state;
+    for (let depth = 0; depth < 8; depth++) {
+      if (solved(s)) return { actions, state: s };
+      if (count(s) === 12) {
+        const m = align(s);
+        return m ? { actions: [...actions, turnAction(m)], state: compose(s, this.flatMoves[m]) } : { actions, state: s };
+      }
+      const kept = solvedMask(s);
+      const hits = [];
+      const choice = Math.floor(pick / 4 ** depth) % 4; // which alternative to take at this depth
+      for (const e of table) {
+        if (hits.length > choice + 3) break;
+        if (kept & ~e.mask) continue;
+        composePart(s, e.flat, buf, cfg);
+        if (count(buf) === 12) hits.push(e);
+      }
+      if (hits.length) {
+        const e = hits[Math.min(choice, hits.length - 1)];
+        let after = compose(s, e.flat);
+        const list = [...actions, e];
+        const m = align(after);
+        if (m) { list.push(turnAction(m)); after = compose(after, this.flatMoves[m]); }
+        return { actions: list, state: after };
+      }
+      // the key position counts for more than all edges home, so that the last three edges stay a step of their own
+      const rate = (f) => { const c = count(f); return c === 12 ? (solved(f) ? 10 : 11) : Math.min(c, 9); };
+      const step = this.climb(s, table, { ...edgeTarget, count: rate, goal: rate(s) + 1, pick: choice });
+      actions.push(...step.actions);
+      s = step.state;
+    }
+    throw new Error("no key position");
+  }
+
+  /** Step 4: the one series that finishes the edges from the key position (nothing to do when they are home). */
+  lastEdges(s, corners) {
+    const need = corners.reduce((m, i) => m | (1 << (12 + i)), 0);
+    const solved = (f) => { for (let i = 0; i < 12; i++) if (f[i] !== i || f[12 + i] !== 0) return false; return true; };
+    if (solved(s)) return [{ parts: [], state: s, score: 0 }];
+    return this.singleFinishers(s, need).slice(0, 12).map((e) => {
+      const parts = this.actionsToParts([e], "edge");
+      return { parts, state: compose(s, e.flat), score: this.mcc(parts) };
+    }).filter((c) => solved(c.state)).sort((a, b) => a.score - b.score).slice(0, 6);
   }
 
   /** Three F2L pairs by insertion algorithms (null-safe: throws if the table cannot do it). */
@@ -870,7 +981,7 @@ export class MarshallSolver {
     const rp = this.climb(state, table, { target: { edges: [], corners: [] }, goal: 6, count: pairCount, first, pick });
     const corners = MIDDLE.filter((e) => rp.state[e] === e && rp.state[12 + e] === 0).map((e) => PAIR_CORNER[e])
       .filter((c) => rp.state[24 + c] === c && rp.state[32 + c] === 0);
-    return { name: "F2L pairs (cross + 3 pairs)", parts: this.actionsToParts(rp.actions, "f2l"), state: rp.state, corners, pairs: 3 };
+    return { name: "3 F2L Pairs", parts: this.actionsToParts(rp.actions, "f2l"), state: rp.state, corners, pairs: 3 };
   }
 
   /** Of the equally cheap spellings of an action, the one with the lowest movecount coefficient. */

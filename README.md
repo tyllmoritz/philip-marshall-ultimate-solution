@@ -167,3 +167,10 @@ With a smart cube connected the algorithm window starts with **0. Scramble**: th
 the moves it was given are listed under the target moves ("You did: ...") and **use current scramble** appears in the top right corner - it takes the cube's present state
 as the scramble. When an algorithm is finished the line reads **done: next algorithm** and is the button for going on. Without a smart cube the move that is
 being played is highlighted in the algorithm line as well.
+
+## Step 3 is split
+
+Step 3 ("Top Edge Pieces") stops at Marshall's key position: one middle-layer edge and two last-layer edges are wrong and one series
+(ideally a bare Hedgeslammer / Sledgehammer / sexy move) finishes them - that series is step 4, "Last Three Edge Pieces". The optional aligning `U`
+turn ends step 3. In a random sample 23 of 30 solves reached the key position; otherwise step 3 simply solves all the edges and step 4 is empty. Step 2 is named
+"3 Center Section Edge Pieces" or, with partial F2L, "3 F2L Pairs".

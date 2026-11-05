@@ -21,16 +21,16 @@ function checkSteps(solver, scr, r, f2l, yellowTop) {
   for (const step of r.steps) {
     played.push(...step.parts.flatMap((p) => p.moves));
     // from step 2 on the cube is turned over (x2); turn it back to judge piece positions
-    const f = flatOf(played.join(" ") + (masks.length >= (yellowTop ? 0 : 1) && masks.length < 4 ? " x2" : ""));
+    const f = flatOf(played.join(" ") + (masks.length >= (yellowTop ? 0 : 1) && masks.length < 5 ? " x2" : ""));
     masks.push(solvedMask(f));
-    if (masks.length === 4 && !unsolvedOnOneSide(f)) return "step 4: remaining corners are not on one side";
+    if (masks.length === 5 && !unsolvedOnOneSide(f)) return "step 4: remaining corners are not on one side";
   }
   const inv = (m) => (m.endsWith("2") ? m : m.endsWith("'") ? m[0] : m + "'");
   // an edge series is a commutator X Y X' Y' of two adjacent faces (any orientation, mirrored or not)
   const commutator = (m, trimmedOk) => (m.length === 3 && trimmedOk && m[2] === inv(m[0]) && m[0][0] !== m[1][0] && !m[0].endsWith("2") && !m[1].endsWith("2")) || m.length === 4 && m[2] === inv(m[0]) && m[3] === inv(m[1]) && m[0][0] !== m[1][0] && !m[0].endsWith("2") && !m[1].endsWith("2");
   const niklas = ["U R U' L' U R' U' L", "L' U R U' L U R' U'"];
   for (const p of r.steps.flatMap((st, si) => st.parts.map((x) => ({ ...x, step: si })))) {
-    if (p.kind === "edge" && !commutator(p.moves, p.step === (yellowTop ? 1 : 1))) return "edge series is not a commutator: " + p.moves.join(" ");
+    if (p.kind === "edge" && !commutator(p.moves, p.step === 1)) return "edge series is not a commutator: " + p.moves.join(" ");
     if (p.kind === "corner" && !niklas.includes(p.moves.join(" "))) return "series not in front/top form: " + p.moves.join(" ");
   }
   const has = (m, bits) => (m & bits) === bits;
@@ -43,10 +43,17 @@ function checkSteps(solver, scr, r, f2l, yellowTop) {
     const pairs = [8, 9, 10, 11].filter((e) => has(masks[1], EDGE_BITS([e]) | CORNER_BITS([PAIR[e]]))).length;
     if (pairs < 3) return "step 2: need 3 F2L pairs, got " + pairs;
   }
-  if (!has(masks[2], EDGE_BITS([...Array(12).keys()]))) return "step 3: not all edges solved";
-  const corners = bitsSet(masks[3] >> 12, [...Array(8).keys()]);
-  if (!has(masks[3], EDGE_BITS([...Array(12).keys()])) || corners < 5) return "step 4: need all edges + 5 corners, got " + corners;
-  if (masks[4] !== (1 << 20) - 1) return "step 5: not solved";
+  // step 3 ends in the key position: nothing left, or one middle-layer edge and two top-layer edges wrong
+  // (seen with the cross on U: middle edges 8-11, top layer = the D edges 4-7)
+  const wrong = [...Array(12).keys()].filter((i) => !(masks[2] & (1 << i)));
+  if (wrong.length) {
+    const mid = wrong.filter((i) => i >= 8).length, top = wrong.filter((i) => i >= 4 && i < 8).length;
+    if (wrong.length !== 3 || mid !== 1 || top !== 2) return "step 3: wrong edges " + wrong.join(",") + " are not 1 middle + 2 top";
+  }
+  if (!has(masks[3], EDGE_BITS([...Array(12).keys()]))) return "step 4: not all edges solved";
+  const corners = bitsSet(masks[4] >> 12, [...Array(8).keys()]);
+  if (!has(masks[4], EDGE_BITS([...Array(12).keys()])) || corners < 5) return "step 5: need all edges + 5 corners, got " + corners;
+  if (masks[5] !== (1 << 20) - 1) return "step 6: not solved";
   return null;
 }
 const n = +process.argv[2] || 20;
