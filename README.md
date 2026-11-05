@@ -151,3 +151,11 @@ is reported. Clicking in the solution list goes back to the full solution until 
 
 Step 2 does not care about the top layer, so an edge series that ends with a top-layer turn (`R U R' U'`, `U R U' R'`, ...) may leave that last turn out
 (`R U' R'`). That flips the edge parity; step 3 ends with the aligning `U`/`U'` turn that sets it right again (it is only there when needed).
+
+## The end game
+
+Every series is written as *rotate, setup turns (as seen after the rotation), series, repair, rotate back*. The end game is looked up, not searched:
+a table of everything one Niklas can do after a rotation and 1-3 setup turns (about 1000 distinct corner changes, built once in the background) says whether
+**one** Niklas finishes the cube - that is the case when one of the last corners can be turned into its place and orientation. Otherwise the cheapest
+**two** (found by meeting in the middle through the same table) always do. Step 4 prefers results that leave a one-Niklas end game.
+In 20 random solves 18 end games were a single Niklas, 2 needed two; average solution length fell from about 87 to about 77 moves.

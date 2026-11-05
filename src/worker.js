@@ -2,7 +2,10 @@ import { cube3x3x3 } from "cubing/puzzles";
 import { MarshallSolver } from "./engine/solver.js";
 
 const ready = cube3x3x3.kpuzzle().then((kp) => new MarshallSolver(kp));
-ready.then(() => postMessage({ type: "ready" }));
+ready.then((solver) => {
+  postMessage({ type: "ready" });
+  setTimeout(() => solver.endgameTable(), 0); // the end-game lookup is built in the background
+});
 
 onmessage = async (e) => {
   const solver = await ready;

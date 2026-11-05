@@ -624,14 +624,14 @@ export class MarshallSolver {
   }
 
   /** Distinct candidates from make(0..picks-1), best (lowest movecount coefficient) first. */
-  rank(make, picks = 6) {
+  rank(make, picks = 6, penalty = null) {
     const seen = new Map();
     for (let pick = 0; pick < picks; pick++) {
       let c;
       try { c = make(pick); } catch { continue; }
       const key = c.parts.map((p) => p.kind + ":" + p.moves.join(" ")).join("|");
       if (seen.has(key)) continue;
-      c.score = this.mcc(c.parts);
+      c.score = this.mcc(c.parts) + (penalty ? penalty(c) : 0);
       seen.set(key, c);
     }
     return [...seen.values()].sort((a, b) => a.score - b.score);
@@ -802,18 +802,27 @@ export class MarshallSolver {
       const n = this.solvedCorners(f, ALL_CORNERS).length;
       return n >= 5 && unsolvedOnOneSide(f) ? n : Math.min(n, 4);
     };
-    const cornerStage = (name, goal, count) => (s) => this.rank((pick) => {
+    const cornerStage = (name, goal, count, picks = 6, penalty = null) => (s) => this.rank((pick) => {
       const r = this.climb(s, this.cornerTable, { target: { edges: [], corners: ALL_CORNERS }, goal, count, pick });
       return { parts: this.actionsToParts(r.actions, "corner"), state: r.state };
-    }).map((c) => ({ ...c, name }));
+    }, picks, penalty).map((c) => ({ ...c, name }));
+    // the end game is usually: rotate, 1-3 setup turns, one Niklas, repair - look for that first
+    const endGame = (s) => {
+      const hit = this.endgameSingle(s);
+      const single = hit ? [{ parts: this.actionsToParts([hit], "corner"), state: compose(s, hit.flat), name: "The End Game" }] : [];
+      for (const c of single) c.score = this.mcc(c.parts);
+      return [...single, ...cornerStage("The End Game", 8)(s)].sort((a, b) => a.score - b.score);
+    };
+    // step 4 is judged by what it leaves: a position the end game solves with a single Niklas counts for a lot
+    const leavesSingle = (c) => (this.endgameSingle(c.state) ? 0 : 25);
     const stages = [
       (s) => this.step2Candidates(s, f2l),
       (s, ctx) => this.rank((pick) => {
         const r = ctx.corners.length ? this.finishEdges(s, ctx.corners, edgeTarget, pick) : this.climb(s, this.edgeParity(s) ? this.edgeTable.withOdd : this.edgeTable, { ...edgeTarget, pick });
         return { parts: this.actionsToParts(r.actions, "edge"), state: r.state };
       }).map((c) => ({ ...c, name: "Top Edge Pieces" })),
-      cornerStage("Five Corner Pieces", 5, fiveOnASide),
-      cornerStage("The End Game", 8),
+      cornerStage("Five Corner Pieces", 5, fiveOnASide, 10, leavesSingle),
+      endGame,
     ];
     const go = (i, s, ctx) => {
       if (i === stages.length) {
@@ -869,10 +878,21 @@ export class MarshallSolver {
     if (!a.alts || a.alts.length < 2) return a;
     let best = null, bestScore = Infinity;
     for (const alt of a.alts) {
-      const score = movecount([...a.pre, ...alt.setup, ...alt.word, ...alt.canon, ...invertRotationWord(alt.word), ...invertAlg(alt.setup)]);
+      const score = movecount([...a.pre, ...this.inFrame(alt)]);
       if (score < bestScore) { best = alt; bestScore = score; }
     }
     return { ...a, setup: best.setup, series: best.series, canon: best.canon, word: best.word };
+  }
+
+  /** rotate, setup turns (as seen after the rotation), the series, the repair (undo), rotate back. */
+  inFrame(a) {
+    const word = a.word ?? [];
+    if (!word.length) return [...a.setup, ...(a.canon ?? a.series), ...invertAlg(a.setup)];
+    const frame = rotationOf(word); // position -> cube face after the rotation
+    const position = {};
+    for (const p of FACES) position[frame[p]] = p;
+    const setup = a.setup.map((m) => position[m[0]] + m.slice(1));
+    return [...word, ...setup, ...a.canon, ...invertAlg(setup), ...invertRotationWord(word)];
   }
 
   actionsToParts(actions, kind) {
@@ -882,13 +902,82 @@ export class MarshallSolver {
       const a = this.nicest(orig);
       if (a.pre.length && !a.series.length) { parts.push({ kind: "turns", moves: a.pre, act }); continue; }
       if (a.pre.length) parts.push({ kind: "turns", moves: a.pre, act });
-      if (a.setup.length) parts.push({ kind: "setup", moves: a.setup, act });
-      const turn = a.word?.length;
-      if (turn) parts.push({ kind: "rotate", moves: a.word, act });
+      const word = a.word ?? [];
+      let setup = a.setup;
+      if (word.length) {
+        const frame = rotationOf(word);
+        const position = {};
+        for (const p of FACES) position[frame[p]] = p;
+        setup = a.setup.map((m) => position[m[0]] + m.slice(1));
+        parts.push({ kind: "rotate", moves: word, act });
+      }
+      if (setup.length) parts.push({ kind: "setup", moves: setup, act });
       parts.push({ kind, moves: a.canon ?? a.series, act });
-      if (turn) parts.push({ kind: "rotate", moves: invertRotationWord(a.word), act });
-      if (a.setup.length) parts.push({ kind: "undo", moves: invertAlg(a.setup), act });
+      if (setup.length) parts.push({ kind: "undo", moves: invertAlg(setup), act });
+      if (word.length) parts.push({ kind: "rotate", moves: invertRotationWord(word), act });
     }
     return parts;
+  }
+
+  /**
+   * Everything one Niklas can do after a rotation and 0-3 setup turns (and the repair afterwards):
+   * a lookup from the corner change it makes to the cheapest spellings. Built once, on first use.
+   */
+  endgameTable() {
+    if (this._endgame) return this._endgame;
+    const cfg = { n: 8, p: 24, o: 32, mod: 3 };
+    const base = parseAlg(CORNER_SERIES);
+    const setups = setupSequences(3);
+    const map = new Map();
+    for (const rot of ROTATIONS) {
+      const word = rotationWord(rot);
+      for (const canon of [base, invertAlg(base)]) {
+        const series = mapAlg(rot, canon);
+        const sflat = this.run(this.solvedFlat, series);
+        for (const inner of setups) { // turns as seen after the rotation
+          const setup = mapAlg(rot, inner);
+          // setup . series . repair
+          let f = this.run(this.solvedFlat, setup);
+          f = compose(f, sflat);
+          f = this.run(f, invertAlg(setup));
+          const cost = 2 * weight(inner) + weight(canon) + 2 * ROTATE_WEIGHT * word.length;
+          const h = hashPart(f, cfg);
+          const alt = { setup, series, canon, word, cost };
+          let bucket = map.get(h);
+          if (!bucket) map.set(h, (bucket = []));
+          let entry = bucket.find((x) => samePart(x.flat, f, cfg));
+          if (!entry) { entry = { flat: f, pre: [], setup, series, canon, word, cost, alts: [alt] }; bucket.push(entry); }
+          if (cost < entry.cost - 1e-9) Object.assign(entry, { setup, series, canon, word, cost, alts: [alt] });
+          else if (cost < entry.cost + 1 && entry.alts.length < 8) entry.alts.push(alt);
+        }
+      }
+    }
+    this._endgame = { map, cfg };
+    return this._endgame;
+  }
+
+  /** The cheapest pairs of such macros that finish the cube from s (two Niklas always suffice). */
+  endgameDouble(s, limit = 6) {
+    const { map, cfg } = this.endgameTable();
+    this._endgameList ??= [...map.values()].flat();
+    const n = new Uint8Array(N);
+    const found = [];
+    for (const a of this._endgameList) {
+      composePart(s, a.flat, n, cfg);
+      const inv = invertPart(n, cfg);
+      const bucket = map.get(hashPart(inv, cfg));
+      const b = bucket?.find((x) => samePart(x.flat, inv, cfg));
+      if (b) found.push({ a, b, cost: a.cost + b.cost });
+    }
+    return found.sort((x, y) => x.cost - y.cost).slice(0, limit);
+  }
+
+  /** One rotation, a few setup turns, one Niklas and the repair that finish the cube from s - or null. */
+  endgameSingle(s) {
+    const { map, cfg } = this.endgameTable();
+    const want = invertPart(s, cfg);
+    const bucket = map.get(hashPart(want, cfg));
+    const hit = bucket?.find((x) => samePart(x.flat, want, cfg));
+    return hit ?? null;
   }
 }
