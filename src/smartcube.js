@@ -257,7 +257,7 @@ export function initSmartCube(api) {
           const { lead, toView } = leadFrame();
           const remaining = scrPath.moves.slice(k).map(toView);
           custom = { setup: [scrPath.start, ...scrPath.moves.slice(0, k), ...lead].join(" "), moves: remaining };
-          info = { title: "0. Scramble", sub: "from your cube to the scramble", moves: remaining.join(" ") };
+          info = { title: "0. Scramble", sub: "from your cube to the scramble", groups: [{ kind: "turns", moves: remaining }] };
         } else {
           // off the path: first take the wrong turns back, then carry on from where the cube left the path
           const at = lastOn?.k ?? 0;
@@ -265,7 +265,7 @@ export function initSmartCube(api) {
           const undo = invertAlg(mergeTurns(recordedCube)).map(toView);
           const moves = [...undo, ...scrPath.moves.slice(at).map(toView)];
           custom = { setup: [scrPath.start, ...scrPath.moves.slice(0, at), ...recordedCube, ...lead].join(" "), moves };
-          info = { title: "0. Scramble", sub: "from your cube to the scramble", moves: moves.join(" "), undo: undo.length };
+          info = { title: "0. Scramble", sub: "from your cube to the scramble", groups: [{ kind: "fix", moves: undo }, { kind: "turns", moves: scrPath.moves.slice(at).map(toView) }] };
         }
       }
     }
@@ -286,7 +286,7 @@ export function initSmartCube(api) {
         const base = api.unitInfo(algIndex);
         if (inside) {
           lastOn = { g };
-          info = { ...base, moves: solution().slice(g, u.e).join(" "), done: g === u.e };
+          info = { ...base, groups: api.unitGroups(algIndex, g), done: g === u.e };
           range = { from: g, to: u.e };
         } else {
           // off the path: first take the wrong turns back (unless they were just another way to a state on the path,
@@ -306,7 +306,7 @@ export function initSmartCube(api) {
           const moves = [...lead, ...sol.slice(resume, u.e)];
           const setup = [...api.get().current.scramble, ...sol.slice(0, at), ...recordedCube.map(toView)].join(" ");
           custom = { setup, moves };
-          info = { ...base, moves: moves.join(" "), undo: lead.length };
+          info = { ...base, groups: [{ kind: "fix", moves: lead }, ...api.unitGroups(algIndex, resume)] };
         }
       }
     }

@@ -198,3 +198,6 @@ the cubes agree from the moment they connect and no rotation is given twice when
 
 *Repeat* is a slider: `0` (off), `1`, `2`, `3` (that many moves, counted from the current one - meant for a cube without Bluetooth), `algo` (the current series), `step` and `all`.
 The line above the cubes highlights the move being played, also for step 0 and for the lists a smart cube shows; the solution list lights up only while the solution itself plays.
+
+The line above the cubes is grouped and coloured like the solution list - one chip per part (setup, rotation, series, repair; Hedgeslammer in blue, Niklas in orange, ...);
+turns to take back after a wrong move are a red chip in front.

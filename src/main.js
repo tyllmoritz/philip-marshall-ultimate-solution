@@ -170,6 +170,45 @@ function shortInfo(part) {
 }
 
 /** The step, what its algorithm does, and the algorithm itself (what is left of it) as the panel's background. */
+/**
+ * The algorithm line above the cubes, grouped and coloured like the solution list: one chip per part
+ * (setup, rotation, series, repair), kinds as in `chip.<kind>`. groups = [{ kind, moves }].
+ */
+function renderLine(groups) {
+  const line = $("algo-moves");
+  line.replaceChildren();
+  let n = 0;
+  for (const g of groups) {
+    if (!g.moves.length) continue;
+    const chip = document.createElement("span");
+    chip.className = "chip " + g.kind;
+    for (const m of g.moves) {
+      const tok = document.createElement("span");
+      tok.className = "tok";
+      tok.textContent = m;
+      chip.append(tok, " ");
+      n++;
+    }
+    line.append(chip, " ");
+  }
+  return n;
+}
+const lineTokens = () => [...$("algo-moves").querySelectorAll(".tok")];
+
+/** The parts of solution unit k from global move `from` on (the part of an algorithm that is left). */
+function unitGroups(k, from = 0) {
+  const u = layout.units[k];
+  const out = [];
+  let at = u.s;
+  for (const p of u.parts) {
+    const skip = Math.max(0, from - at);
+    const moves = p.moves.slice(skip);
+    if (moves.length) out.push({ kind: p.kind, moves });
+    at += p.moves.length;
+  }
+  return out;
+}
+
 let infoLocked = false; // a smart cube writes the panel text itself
 function showInfo(g) {
   if (infoLocked) return;
@@ -182,16 +221,10 @@ function showInfo(g) {
   $("algo-sub").textContent = shortInfo(u.part);
   const box2 = $("algo-moves");
   box2.classList.remove("done");
-  box2.replaceChildren();
   const from = Math.max(u.s, view.from);
-  const moves = current.result.solution.slice(from, u.e);
-  if (!moves.length) box2.textContent = "done";
-  moves.forEach((m, i) => {
-    const span = document.createElement("span");
-    span.textContent = m;
-    if (from + i === lit) span.className = "now"; // the move being played, like in the solution list
-    box2.append(span, " ");
-  });
+  const n = renderLine(unitGroups(layout.units.indexOf(u), from));
+  if (!n) box2.textContent = "done";
+  lineTokens().forEach((t, i) => t.classList.toggle("now", from + i === lit)); // the move being played, like in the solution list
   $("algo-did").hidden = true;
 }
 
@@ -229,7 +262,7 @@ function onTime(ts) {
   if (ts > 0 && (view.custom || infoLocked)) {
     // the line above the cubes: the move being played (algorithm shown by a smart cube, step 0, ...)
     const k = g - view.from;
-    [...$("algo-moves").children].forEach((x, i) => x.classList.toggle("now", i === k));
+    lineTokens().forEach((x, i) => x.classList.toggle("now", i === k));
   }
   if (ts > 0 && !view.custom) {
     // the solution list lights up only while the solution itself is playing (not during step 0)
@@ -504,7 +537,7 @@ function render({ scramble, result }) {
         }
         unit.append(chip, " ");
       }
-      layout.units.push({ s, e: at, step: i, part: group.find((x) => SERIES_KINDS.includes(x.kind)) });
+      layout.units.push({ s, e: at, step: i, part: group.find((x) => SERIES_KINDS.includes(x.kind)), parts: group.map((x) => ({ kind: x.kind, moves: x.moves })) });
       body.append(unit, " ");
     }
     layout.steps.push({ s: stepStart, e: at });
@@ -639,6 +672,8 @@ const smart = initSmartCube({
     setRepeat("all");
     useRange(from, to);
   },
+  /** coloured groups of solution unit k from global move `from` on */
+  unitGroups(k, from) { return unitGroups(k, from); },
   /** step and algorithm name for solution unit k */
   unitInfo(k) {
     const u = layout?.units[k];
@@ -657,13 +692,8 @@ const smart = initSmartCube({
     m.dataset.action = info.action ?? "";
     if (info.done) m.textContent = info.action === "scramble" ? "new scramble" : "done: next algorithm";
     else {
-      m.replaceChildren();
-      (info.moves ?? "").split(" ").filter(Boolean).forEach((t, i) => {
-        const span = document.createElement("span");
-        span.textContent = t;
-        if (i < (info.undo ?? 0)) span.className = "undo"; // wrong turns to take back come first
-        m.append(span, " ");
-      });
+      const n = renderLine(info.groups ?? [{ kind: "turns", moves: (info.moves ?? "").split(" ").filter(Boolean) }]);
+      if (!n) m.textContent = "";
     }
     $("algo-did").hidden = !info.did;
     $("algo-did").textContent = info.did ?? "";
