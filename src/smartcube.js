@@ -130,7 +130,7 @@ export function initSmartCube(api) {
     let p = kpuzzle.defaultPattern().applyAlg(current.scramble.join(" "));
     const states = [p];
     for (const m of cube) { p = p.applyMove(m); states.push(p); }
-    plan = { units: layout.units, at: (g) => states[cubeBefore[g]], count: (g) => cubeBefore[g], total: current.result.solution.length };
+    plan = { units: layout.units, at: (g) => states[cubeBefore[g]], count: (g) => cubeBefore[g], next: (g) => cube[cubeBefore[g]], total: current.result.solution.length };
     algIndex = 0;
     shownKey = "";
     following = true;
@@ -210,6 +210,14 @@ export function initSmartCube(api) {
   }
 
   let planning = 0;
+
+  /**
+   * A half turn is made of two quarter turns, in either direction. The cube sitting at the first quarter is not a mistake;
+   * it becomes one only if another move follows.
+   */
+  const halfTurnPending = (before, move) => !!move && move.endsWith("2") && !!before
+    && [move[0], move[0] + "'"].some((m) => samePieces(pattern, before.applyMove(m)));
+  let pendingNow = false;
   let advanceTimer = null;
 
   /**
@@ -237,6 +245,7 @@ export function initSmartCube(api) {
     const atScramble = g >= 0 && plan.count(g) === 0;
     if (stage === 0 && g >= 0 && !atScramble) stage = 1; // already solving
     let info, range = null, custom = null;
+    pendingNow = false;
     if (stage === 0) {
       if (atScramble && scrPath) {
         info = { title: "0. Scramble", sub: "from your cube to the scramble", done: true };
@@ -244,7 +253,11 @@ export function initSmartCube(api) {
       } else if (atScramble) {
         stage = 1; // the cube is at the scramble already
       } else {
-        const k = scrPath ? scrPath.states.map((p, i) => (samePieces(pattern, p) ? i : -1)).reduce((a, b) => Math.max(a, b), -1) : -1;
+        let k = scrPath ? scrPath.states.map((p, i) => (samePieces(pattern, p) ? i : -1)).reduce((a, b) => Math.max(a, b), -1) : -1;
+        if (k < 0 && scrPath && lastOn?.k != null && halfTurnPending(scrPath.states[lastOn.k], scrPath.moves[lastOn.k])) {
+          k = lastOn.k; // a quarter of a half turn: still on the path
+          pendingNow = true;
+        }
         if (!scrPath) {
           const mine = ++planning;
           const fresh = await planScramble();
@@ -271,6 +284,10 @@ export function initSmartCube(api) {
       }
     }
     if (stage === 1) {
+      if (g < 0 && lastOn?.g != null && halfTurnPending(plan.at(lastOn.g), plan.next(lastOn.g))) {
+        g = lastOn.g; // a quarter of a half turn: still on the path
+        pendingNow = true;
+      }
       let u = unit();
       if (g >= 0 && u && (g < u.s || g > u.e)) {
         // the cube moved to another algorithm: follow it
@@ -324,7 +341,7 @@ export function initSmartCube(api) {
       }, 1000);
     }
     if (stage === 1 || (stage === 0 && atScramble)) offPath = stage === 1 ? offPath : false;
-    if (!offPath) { recorded = []; recordedCube = []; }
+    if (!offPath && !pendingNow) { recorded = []; recordedCube = []; }
     info.did = offPath && recorded.length ? `You did: ${recorded.join(" ")}` : "";
     $("bt-take").hidden = !offPath;
     const key = `${stage}:${algIndex}:${range ? range.from : "p"}:${offPath}:${custom ? custom.setup + "|" + custom.moves.join(" ") : ""}`;

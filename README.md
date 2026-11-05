@@ -204,3 +204,6 @@ turns to take back after a wrong move are a red chip in front.
 
 The loop slider works the same with and without a smart cube (the remaining algorithm or the step 0 list is what it loops over) and starts at `3`.
 Clicking a series sets it to `algo`, a step to `step`, the outer border to `all`.
+
+A half turn done as two quarter turns is not a mistake, in either direction: the cube sitting at the first quarter (`L` or `L'` for an expected `L2`) is shown as still on the path.
+Only another move after that quarter turn counts as one (and then the quarter turn is part of what is taken back).
