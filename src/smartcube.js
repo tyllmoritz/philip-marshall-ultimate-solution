@@ -212,7 +212,14 @@ export function initSmartCube(api) {
     let g = -1;
     const cur = stage === 1 ? unit() : null;
     if (cur) for (let i = cur.e; i >= cur.s; i--) if (samePieces(pattern, plan.at(i))) { g = i; break; }
-    if (g < 0) for (let i = plan.total; i >= 0; i--) if (samePieces(pattern, plan.at(i))) { g = i; break; }
+    // a solved cube is the start of a new round (it has to be scrambled), not the end of this one
+    const finalCount = plan.count(plan.total);
+    if (g < 0) {
+      for (let i = plan.total; i >= 0; i--) {
+        if (stage === 0 && finalCount > 0 && plan.count(i) >= finalCount) continue; // (rotation tokens after the last turn show the same state)
+        if (samePieces(pattern, plan.at(i))) { g = i; break; }
+      }
+    }
     if (stage === 0 && g > 0) stage = 1; // already solving
     let info, range = null, custom = null;
     if (stage === 0) {
@@ -255,7 +262,7 @@ export function initSmartCube(api) {
         u = unit();
       }
       if (!u) {
-        info = { title: "Solved", sub: "all algorithms done", moves: "" };
+        info = { title: "Solved", sub: "all algorithms done", moves: "new scramble", done: true, action: "scramble" };
         range = { from: plan.total, to: plan.total };
       } else {
         const inside = g >= u.s && g <= u.e;
@@ -487,7 +494,11 @@ export function initSmartCube(api) {
     await puzzle.readState?.();
     status("Cube reset to solved.");
   });
-  $("algo-moves").addEventListener("click", (e) => { if (e.currentTarget.classList.contains("done")) nextAlgorithm(); });
+  $("algo-moves").addEventListener("click", (e) => {
+    if (!e.currentTarget.classList.contains("done")) return;
+    if (e.currentTarget.dataset.action === "scramble") api.newScramble(); // solved: round and round
+    else nextAlgorithm();
+  });
 
   if (!navigator.bluetooth) {
     $("bt-connect").title = "Web Bluetooth is not available in this browser (try Chrome or Edge)";

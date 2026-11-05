@@ -185,3 +185,8 @@ When the smart cube is turned away from the algorithm, the turn list starts with
 with the rest of the algorithm. Before that the page checks whether the state is just another way to a state on the path - then nothing is added (`L L` for `L2`, `U U'`, ...) - and
 whether one or two turns lead to a state further along the path, which is shorter than taking everything back (`L` after a first `L` instead of `L' L2`).
 The same applies on the way to the scramble in step 0.
+
+### Round and round
+
+A solved cube is the start of a new round, not the end of one: connected solved, the window shows step 0 - the path from the solved cube to the scramble. Once the cube is solved again the
+window says "Solved" with a clickable **new scramble**, which generates a scramble, solves it and goes back to step 0 (scrambling), then solving, then scrambling again.

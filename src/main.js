@@ -616,6 +616,10 @@ let repeatBeforeSmart = null;
 const smart = initSmartCube({
   player,
   get: () => ({ current, layout }),
+  async newScramble() {
+    $("scramble").value = await newScramble();
+    solve();
+  },
   /** a smart cube is connected: the cube shows what is left of the current algorithm, in a loop */
   showRange(from, to) {
     if (!current?.result || !layout) return;
@@ -638,7 +642,8 @@ const smart = initSmartCube({
     $("algo-sub").textContent = info.sub ?? "";
     const m = $("algo-moves");
     m.classList.toggle("done", !!info.done);
-    if (info.done) m.textContent = "done: next algorithm";
+    m.dataset.action = info.action ?? "";
+    if (info.done) m.textContent = info.action === "scramble" ? "new scramble" : "done: next algorithm";
     else {
       m.replaceChildren();
       (info.moves ?? "").split(" ").filter(Boolean).forEach((t, i) => {
