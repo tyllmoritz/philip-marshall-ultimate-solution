@@ -118,10 +118,15 @@ a.btn.disabled { opacity: .5; pointer-events: none; }
 .cubes figure { flex: 1 1 220px; max-width: 300px; margin: 0; display: grid; justify-items: center; }
 .cubes figcaption { font-weight: 600; font-size: .9rem; color: var(--muted); }
 /* the current step and algorithm sit behind the cubes */
-.algo-bg { position: absolute; inset: 12px 16px auto 16px; z-index: 0; pointer-events: none; }
+.algo-bg { width: 100%; margin-bottom: 8px; position: relative; z-index: 2; pointer-events: none; }
 .algo-title { font-weight: 700; font-size: 1.05rem; }
 .algo-sub { color: var(--muted); font-size: .85rem; }
 .algo-moves { margin-top: 4px; font: 600 1.15rem ui-monospace, monospace; color: var(--accent); overflow-wrap: anywhere; }
-.player-panel { padding-top: 90px; }
 
 [hidden] { display: none !important; }
+
+.algo-take { position: absolute; top: 10px; right: 12px; z-index: 3; padding: 4px 10px; font-size: .85rem; }
+.algo-moves.done { pointer-events: auto; cursor: pointer; text-decoration: underline; color: var(--f2l); }
+.algo-did { margin-top: 2px; font: 600 .95rem ui-monospace, monospace; color: var(--err); overflow-wrap: anywhere; }
+.algo-moves span { padding: 0 2px; border-radius: 4px; }
+.algo-moves .now { background: var(--accent); color: #fff; }

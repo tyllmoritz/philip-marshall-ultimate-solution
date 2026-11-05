@@ -55,6 +55,10 @@ export function initSmartCube(api) {
   let live = null;
   let following = true; // the solution cube follows the real cube's progress
   let shownKey = "";
+  let stage = 1; // 0: bring the cube to the scramble, 1: follow the solution
+  let scrPath = null; // { start, moves, states, token }: the way from where the cube was to the scramble
+  let recorded = []; // moves made since the cube left the path
+  let offPath = false;
   let cameraLinked = false;
   // the live cube follows the orientation and the moves of the algorithm shown on the right
   let liveBase = ""; // alg that builds the real cube's state from solved
@@ -100,12 +104,14 @@ export function initSmartCube(api) {
     let p = kpuzzle.defaultPattern().applyAlg(current.scramble.join(" "));
     const states = [p];
     for (const m of cube) { p = p.applyMove(m); states.push(p); }
-    plan = { units: layout.units, at: (g) => states[cubeBefore[g]], count: (g) => cubeBefore[g] };
+    plan = { units: layout.units, at: (g) => states[cubeBefore[g]], count: (g) => cubeBefore[g], total: current.result.solution.length };
     algIndex = 0;
     shownKey = "";
     following = true;
+    stage = 0;
+    scrPath = null;
+    recorded = [];
     showAlgorithm();
-    check();
     resetLive();
   }
 
@@ -148,37 +154,108 @@ export function initSmartCube(api) {
     emitRotations();
   }
 
-  /**
-   * The solution cube shows what is left of the current algorithm: moves the real cube has already made
-   * are not shown again. Progress is read from the real cube's state (compared with the state after each move
-   * of the algorithm), so it is right even if the cube was turned a bit more or less than the page noticed.
-   */
-  function showAlgorithm() {
-    if (!puzzle || !pattern) return; // no smart cube: the page shows the solution as it is
-    const u = unit();
-    if (!plan || !u) { api.showFull(); $("bt-next").textContent = "Next algorithm ▶"; return; }
-    $("bt-next").textContent = `Next algorithm ▶ (${algIndex + 1}/${plan.units.length})`;
-    let from = u.s, bestCount = -1;
-    for (let g = u.s; g <= u.e; g++) {
-      if (samePieces(pattern, plan.at(g)) && plan.count(g) > bestCount) { bestCount = plan.count(g); from = g; }
-    }
-    if (bestCount < 0) {
-      status("The cube is off the algorithm's path - undo your last turn(s), or use the cube's state as the scramble.", true);
-      from = u.s;
-    }
-    const key = `${algIndex}:${from}`;
-    if (key === shownKey || !following) return;
-    shownKey = key;
-    api.showRange(from, u.e);
+  /** The moves that take the cube from where it is to the scramble (and an alg that builds where it is). */
+  async function planScramble() {
+    const { current } = api.get();
+    const from = pattern;
+    const start = await patternToScramble(from);
+    const target = kpuzzle.algToTransformation(current.scramble.join(" "));
+    const q = target.invert().applyTransformation(from.experimentalToTransformation());
+    const alg = await experimentalSolve3x3x3IgnoringCenters(q.toKPattern());
+    const moves = alg.toString().replace(/2'/g, "2").split(/\s+/).filter(Boolean);
+    const states = [from];
+    for (const m of moves) states.push(states[states.length - 1].applyMove(m));
+    return { start, moves, states };
   }
 
-  /** Enable "Next algorithm" once the real cube is where this algorithm leads. */
-  function check() {
-    const btn = $("bt-next");
-    if (!plan || !pattern || algIndex >= plan.units.length) { btn.disabled = true; return; }
-    const done = samePieces(pattern, plan.at(plan.units[algIndex].e));
-    btn.disabled = !done;
-    if (done) status("Algorithm done - press Next algorithm.");
+  const done = (u) => plan && samePieces(pattern, plan.at(u.e));
+  let planning = 0;
+
+  /**
+   * Decide where the real cube is - on the way to the scramble ("step 0"), on the solution, or neither - and show
+   * the matching algorithm: only what is left of it, with the moves already made left out.
+   */
+  async function showAlgorithm() {
+    if (!puzzle || !pattern) return; // no smart cube: the page shows the solution as it is
+    if (!plan) { api.showFull(); $("bt-take").hidden = true; return; }
+    // where on the solution is the cube? (the largest index whose state matches)
+    // (the same state recurs over rotation tokens; inside the current algorithm that one wins, so the end of an
+    // algorithm is not mistaken for the start of the next)
+    let g = -1;
+    const cur = stage === 1 ? unit() : null;
+    if (cur) for (let i = cur.e; i >= cur.s; i--) if (samePieces(pattern, plan.at(i))) { g = i; break; }
+    if (g < 0) for (let i = plan.total; i >= 0; i--) if (samePieces(pattern, plan.at(i))) { g = i; break; }
+    if (stage === 0 && g > 0) stage = 1; // already solving
+    let info, range = null, custom = null;
+    if (stage === 0) {
+      if (g === 0 && scrPath) {
+        info = { title: "0. Scramble", sub: "from your cube to the scramble", done: true };
+        range = { from: 0, to: 0 };
+      } else if (g === 0) {
+        stage = 1; // the cube is at the scramble already
+      } else {
+        const k = scrPath ? scrPath.states.map((p, i) => (samePieces(pattern, p) ? i : -1)).reduce((a, b) => Math.max(a, b), -1) : -1;
+        if (!scrPath) {
+          const mine = ++planning;
+          const fresh = await planScramble();
+          if (mine !== planning) return;
+          scrPath = fresh;
+          return showAlgorithm();
+        }
+        offPath = k < 0;
+        if (k >= 0) {
+          const remaining = scrPath.moves.slice(k);
+          custom = { setup: [scrPath.start, ...scrPath.moves.slice(0, k)].join(" "), moves: remaining };
+          info = { title: "0. Scramble", sub: "from your cube to the scramble", moves: remaining.join(" ") };
+        } else {
+          info = { title: "0. Scramble", sub: "from your cube to the scramble", moves: scrPath.moves.join(" ") };
+        }
+      }
+    }
+    if (stage === 1) {
+      let u = unit();
+      if (g >= 0 && u && (g < u.s || g > u.e)) {
+        // the cube moved to another algorithm: follow it
+        const k = plan.units.findIndex((x) => g > x.s && g <= x.e);
+        algIndex = k >= 0 ? k : 0;
+        u = unit();
+      }
+      if (!u) {
+        info = { title: "Solved", sub: "all algorithms done", moves: "" };
+        range = { from: plan.total, to: plan.total };
+      } else {
+        const inside = g >= u.s && g <= u.e;
+        offPath = g < 0;
+        const from = inside ? g : u.s;
+        const base = api.unitInfo(algIndex);
+        info = { ...base, moves: solution().slice(from, u.e).join(" "), done: inside && g === u.e };
+        range = { from, to: u.e };
+      }
+    }
+    if (stage === 1 || (stage === 0 && g === 0)) offPath = stage === 1 ? offPath : false;
+    if (!offPath) recorded = [];
+    info.did = offPath && recorded.length ? `You did: ${recorded.join(" ")}` : "";
+    $("bt-take").hidden = !offPath;
+    const key = `${stage}:${algIndex}:${range ? range.from : custom ? "c" + custom.setup : "p"}:${offPath}`;
+    api.setInfo(info);
+    if (key === shownKey || !following) return;
+    shownKey = key;
+    if (custom) api.showCustom(custom.setup, custom.moves);
+    else if (range && range.from < range.to) api.showRange(range.from, range.to);
+    else if (range) api.showRange(range.from, range.from);
+    api.setInfo(info);
+  }
+
+  /** "done: next algorithm": go on to the next step 0 / algorithm. */
+  function nextAlgorithm() {
+    if (!plan) return;
+    if (stage === 0) { stage = 1; algIndex = 0; }
+    else algIndex++;
+    shownKey = "";
+    following = true;
+    showAlgorithm();
+    alignLive();
+    status(algIndex >= plan.units.length ? "All algorithms done." : "Do the algorithm shown at the top.");
   }
 
   let lastMoveAt = 0;
@@ -193,7 +270,7 @@ export function initSmartCube(api) {
     pattern = fresh;
     status("Re-synced with the state the cube reports.");
     resetLive();
-    check();
+    showAlgorithm();
   }
 
   async function onMove(e) {
@@ -210,11 +287,11 @@ export function initSmartCube(api) {
       const frame = displayRot.length ? rotationOf(displayRot) : null;
       const position = frame ? Object.keys(frame).find((p) => frame[p] === move[0]) : move[0];
       live.experimentalAddMove(position + move.slice(1));
+      recorded.push(position + move.slice(1));
       if (cursor < u.e && !isRotation(sol[cursor])) cursor++; // that was the expected move
       if (cursor >= u.e || sol.slice(cursor, u.e).every(isRotation)) emitRotations(); // rotate back at the end
     }
     showAlgorithm();
-    check();
   }
 
   /**
@@ -330,6 +407,7 @@ export function initSmartCube(api) {
     puzzle = null;
     $("bt").hidden = true;
     $("bt-live-wrap").hidden = true;
+    $("bt-take").hidden = true;
     api.showFull();
     $("bt-connect").textContent = "Connect smart cube";
     $("bt-connect-gan").hidden = false;
@@ -362,15 +440,7 @@ export function initSmartCube(api) {
     await puzzle.readState?.();
     status("Cube reset to solved.");
   });
-  $("bt-next").addEventListener("click", () => {
-    algIndex++;
-    shownKey = "";
-    following = true;
-    showAlgorithm();
-    alignLive();
-    check();
-    status(algIndex >= (plan?.units.length ?? 0) ? "All algorithms done." : "Do the algorithm shown on the left.");
-  });
+  $("algo-moves").addEventListener("click", (e) => { if (e.currentTarget.classList.contains("done")) nextAlgorithm(); });
 
   if (!navigator.bluetooth) {
     $("bt-connect-gan").title = "Web Bluetooth is not available in this browser (try Chrome or Edge)";

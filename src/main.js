@@ -143,7 +143,7 @@ function indexAt(ts) {
 /** Active borders: the step and series being played, and the solution when the whole of it is. */
 function markActive(g) {
   document.querySelectorAll(".active").forEach((e) => e.classList.remove("active"));
-  if (!view) return;
+  if (!view || view.custom) return;
   const wholeSolution = !scope && (repeatMode() === "off" || repeatMode() === "all");
   if (wholeSolution) $("solution").classList.add("active");
   const step = layout.steps.findIndex((x) => g >= x.s && g < x.e);
@@ -172,7 +172,9 @@ function shortInfo(part) {
 }
 
 /** The step, what its algorithm does, and the algorithm itself (what is left of it) as the panel's background. */
+let infoLocked = false; // a smart cube writes the panel text itself
 function showInfo(g) {
+  if (infoLocked) return;
   const box = $("algo-bg");
   if (!view || !layout || !current?.result) { box.hidden = true; return; }
   const u = layout.units.find((x) => g >= x.s && g < x.e) ?? layout.units[layout.units.length - 1];
@@ -180,7 +182,19 @@ function showInfo(g) {
   box.hidden = false;
   $("algo-title").textContent = `${u.step + 1}. ${current.result.steps[u.step].name}`;
   $("algo-sub").textContent = shortInfo(u.part);
-  $("algo-moves").textContent = current.result.solution.slice(Math.max(u.s, view.from), u.e).join(" ") || "done";
+  const box2 = $("algo-moves");
+  box2.classList.remove("done");
+  box2.replaceChildren();
+  const from = Math.max(u.s, view.from);
+  const moves = current.result.solution.slice(from, u.e);
+  if (!moves.length) box2.textContent = "done";
+  moves.forEach((m, i) => {
+    const span = document.createElement("span");
+    span.textContent = m;
+    if (from + i === lit) span.className = "now"; // the move being played, like in the solution list
+    box2.append(span, " ");
+  });
+  $("algo-did").hidden = true;
 }
 
 function updatePlayButton() {
@@ -287,6 +301,22 @@ function useRange(from, to) {
   $("progress").value = 0;
   markActive(from);
   if (moves.length) playFrom(0, from);
+}
+
+/** Show moves that are not part of the solution (e.g. getting a smart cube to the scramble), looping. */
+function useCustom(setup, moves) {
+  const cum = [0];
+  for (const m of moves) cum.push(cum[cum.length - 1] + moveMs(m));
+  view = { from: 0, to: moves.length, moves, cum, custom: true };
+  scope = null;
+  player.experimentalSetupAlg = setup;
+  player.alg = moves.join(" ");
+  player.timestamp = "start";
+  clearHighlight();
+  document.querySelectorAll(".active").forEach((e) => e.classList.remove("active"));
+  $("progress").max = cum[cum.length - 1];
+  $("progress").value = 0;
+  if (moves.length) playFrom(0, 0);
 }
 
 /** What a playback loops over / stops at, from the repeat mode, the clicked scope and position g. */
@@ -593,7 +623,34 @@ const smart = initSmartCube({
     setRepeat("all");
     useRange(from, to);
   },
+  /** step and algorithm name for solution unit k */
+  unitInfo(k) {
+    const u = layout?.units[k];
+    if (!u) return null;
+    return { title: `${u.step + 1}. ${current.result.steps[u.step].name}`, sub: shortInfo(u.part) };
+  },
+  /** the panel text, written by the smart cube: { title, sub, moves, done, did } or null to hand it back */
+  setInfo(info) {
+    infoLocked = !!info;
+    if (!info) { if (view) showInfo(view.from); else $("algo-bg").hidden = true; return; }
+    $("algo-bg").hidden = false;
+    $("algo-title").textContent = info.title;
+    $("algo-sub").textContent = info.sub ?? "";
+    const m = $("algo-moves");
+    m.textContent = info.done ? "done: next algorithm" : (info.moves ?? "");
+    m.classList.toggle("done", !!info.done);
+    $("algo-did").hidden = !info.did;
+    $("algo-did").textContent = info.did ?? "";
+  },
+  showCustom(setup, moves) {
+    if (repeatBeforeSmart === null) repeatBeforeSmart = repeatMode();
+    setRepeat("all");
+    useCustom(setup, moves);
+  },
   showFull() {
+    infoLocked = false;
+    $("algo-did").hidden = true;
+    $("algo-moves").classList.remove("done");
     if (repeatBeforeSmart !== null) { setRepeat(repeatBeforeSmart); repeatBeforeSmart = null; }
     if (current?.result && layout) { useSolution(); wantPlay = false; player.pause(); }
   },

@@ -159,3 +159,11 @@ a table of everything one Niklas can do after a rotation and 1-3 setup turns (ab
 **one** Niklas finishes the cube - that is the case when one of the last corners can be turned into its place and orientation. Otherwise the cheapest
 **two** (found by meeting in the middle through the same table) always do. Step 4 prefers results that leave a one-Niklas end game.
 In 20 random solves 18 end games were a single Niklas, 2 needed two; average solution length fell from about 87 to about 77 moves.
+
+## Step 0 and the algorithm window
+
+With a smart cube connected the algorithm window starts with **0. Scramble**: the moves that take the cube from where it is to the scramble
+(cubing's solver finds them from the cube's state; moves already made drop out of the list). When the cube is neither on that path nor on the solution,
+the moves it was given are listed under the target moves ("You did: ...") and **use current scramble** appears in the top right corner - it takes the cube's present state
+as the scramble. When an algorithm is finished the line reads **done: next algorithm** and is the button for going on. Without a smart cube the move that is
+being played is highlighted in the algorithm line as well.
