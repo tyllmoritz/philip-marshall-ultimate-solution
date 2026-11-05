@@ -38,7 +38,18 @@
     </section>
 
     <section class="panel player-panel">
-      <div id="player"></div>
+      <div id="algo-bg" class="algo-bg" aria-live="polite" hidden>
+        <div id="algo-title" class="algo-title"></div>
+        <div id="algo-sub" class="algo-sub"></div>
+        <div id="algo-moves" class="algo-moves"></div>
+      </div>
+      <div class="cubes">
+        <div id="player"></div>
+        <figure id="bt-live-wrap" hidden>
+          <div id="bt-live" class="bt-cube"></div>
+          <figcaption>Your cube</figcaption>
+        </figure>
+      </div>
       <input id="progress" class="progress" type="range" min="0" max="1000" step="1" value="0" aria-label="Progress" disabled />
       <div id="controls" class="controls" role="group" aria-label="Playback">
         <button id="prev-step" type="button" title="Previous step" disabled>⏮</button>
@@ -61,10 +72,6 @@
       </div>
       <p id="bt-status" class="hint" role="status">Connect a Bluetooth cube to see its state next to the next algorithm of the solution.</p>
       <div id="bt" hidden>
-        <div class="bt-cubes">
-          <figure><figcaption>Your cube</figcaption><div id="bt-live" class="bt-cube"></div></figure>
-          <figure><figcaption id="bt-alg-title">Next algorithm</figcaption><div id="bt-next-cube" class="bt-cube"></div></figure>
-        </div>
         <div class="row">
           <button id="bt-take" type="button">Use cube state as scramble</button>
           <button id="bt-reread" type="button" title="Ask the cube for its state again" hidden>Re-read cube</button>

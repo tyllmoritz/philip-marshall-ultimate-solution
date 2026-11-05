@@ -138,3 +138,11 @@ differs from the physical cube (turned while it was off or its battery was swapp
 Dragging or touching one of the two cubes turns the other one the same way (their cameras are linked). GAN Gen2-4 cubes need their MAC address:
 once a cube has been read successfully with an address, it is kept in `localStorage` (by the cube's name) and used next time without asking; a saved
 address that does not work is forgotten.
+
+## One panel, one or two cubes
+
+The player panel shows the solution cube alone, or - with a smart cube connected - next to *Your cube* (the second cube is only there while connected).
+Behind the cubes the panel names the current step, says in a short subtitle what its algorithm is (Hedgeslammer, Niklas, ...) and shows the algorithm below.
+With a smart cube connected the solution cube loops only what is *left* of the current algorithm: the cube's state is compared with the state after every move of the
+algorithm, moves already made are not shown (nor in the text), and the animation starts from the cube's current state. A cube that is off the algorithm's path
+is reported. Clicking in the solution list goes back to the full solution until the next turn on the real cube.

@@ -150,6 +150,37 @@ function markActive(g) {
   const unit = layout.units.findIndex((x) => g >= x.s && g < x.e);
   document.querySelector(`.step[data-step="${step}"]`)?.classList.add("active");
   document.querySelector(`.unit[data-unit="${unit}"]`)?.classList.add("active");
+  showInfo(g);
+}
+
+/** Short name and purpose of the series in a unit, for the line below the step name. */
+function shortInfo(part) {
+  if (!part) return "";
+  const m = part.moves.join(" ");
+  switch (part.kind) {
+    case "edge": {
+      const name = m === "F R' F' R" ? "Hedgeslammer" : m === "R' F R F'" ? "Sledgehammer"
+        : part.moves.every((x) => "RLUD".includes(x[0])) ? "Sexy move" : "Hedgeslammer, turned";
+      return `${name} · cycles three edges`;
+    }
+    case "corner": return `Niklas${part.moves[0] === "U" ? "" : " (inverse)"} · cycles three corners`;
+    case "f2l": return "F2L algorithm · inserts a corner-edge pair";
+    case "daisy": return "Daisy · white edges up around the yellow centre";
+    case "insert": return "Half turn · drops a white edge into the cross";
+    default: return "Turns · line up the pieces";
+  }
+}
+
+/** The step, what its algorithm does, and the algorithm itself (what is left of it) as the panel's background. */
+function showInfo(g) {
+  const box = $("algo-bg");
+  if (!view || !layout || !current?.result) { box.hidden = true; return; }
+  const u = layout.units.find((x) => g >= x.s && g < x.e) ?? layout.units[layout.units.length - 1];
+  if (!u) { box.hidden = true; return; }
+  box.hidden = false;
+  $("algo-title").textContent = `${u.step + 1}. ${current.result.steps[u.step].name}`;
+  $("algo-sub").textContent = shortInfo(u.part);
+  $("algo-moves").textContent = current.result.solution.slice(Math.max(u.s, view.from), u.e).join(" ") || "done";
 }
 
 function updatePlayButton() {
@@ -237,6 +268,27 @@ function useSolution() {
   $("twizzle").classList.remove("disabled");
 }
 
+/**
+ * Show only solution moves [from, to) (with everything before them as the setup): the part of an
+ * algorithm that is left to do on a smart cube. Loops, since that is what the cube is for.
+ */
+function useRange(from, to) {
+  const { scramble, result } = current;
+  const moves = result.solution.slice(from, to);
+  const cum = [0];
+  for (const m of moves) cum.push(cum[cum.length - 1] + moveMs(m));
+  view = { from, to, moves, cum };
+  scope = null;
+  player.experimentalSetupAlg = [...scramble, ...result.solution.slice(0, from)].join(" ");
+  player.alg = annotate(result.steps, from, to);
+  player.timestamp = "start";
+  clearHighlight();
+  $("progress").max = cum[cum.length - 1];
+  $("progress").value = 0;
+  markActive(from);
+  if (moves.length) playFrom(0, from);
+}
+
 /** What a playback loops over / stops at, from the repeat mode, the clicked scope and position g. */
 function updateWindow(g = indexAt(lastTs)) {
   if (!view) return;
@@ -321,6 +373,7 @@ function finish(result) {
   smart.onSolution();
 }
 
+const SERIES_KINDS = ["edge", "corner", "f2l", "turns", "daisy", "insert"];
 const KIND_LABEL = { daisy: "daisy: white edges up around the yellow centre", insert: "half turn into the white cross", edge: "Hedgeslammer / Sledgehammer / sexy move (edge series)", corner: "Niklas (corner series)", setup: "setup / undo turns", undo: "undo", turns: "turns", rotate: "cube rotation", f2l: "F2L algorithm" };
 
 /** What a part of the solution does, for the // comments in the player and its Twizzle link. */
@@ -388,7 +441,7 @@ function render({ scramble, result }) {
     let open = [];
     for (const part of step.parts) {
       open.push(part);
-      if (["edge", "corner", "f2l", "turns", "daisy", "insert"].includes(part.kind)) { groups.push(open); open = []; }
+      if (SERIES_KINDS.includes(part.kind)) { groups.push(open); open = []; }
     }
     if (open.length) groups.length ? groups[groups.length - 1].push(...open) : groups.push(open);
     for (const group of groups) {
@@ -409,7 +462,7 @@ function render({ scramble, result }) {
         }
         unit.append(chip, " ");
       }
-      layout.units.push({ s, e: at, step: i });
+      layout.units.push({ s, e: at, step: i, part: group.find((x) => SERIES_KINDS.includes(x.kind)) });
       body.append(unit, " ");
     }
     layout.steps.push({ s: stepStart, e: at });
@@ -424,6 +477,7 @@ $("solution").addEventListener("click", (e) => {
   if (!current?.result || !layout) return;
   const t = target(e);
   if (!t) return;
+  if (view && view.to - view.from !== current.result.solution.length) { smart.release(); useSolution(); }
   if (t.classList.contains("mv")) {
     const k = +t.dataset.i;
     // first click jumps to the state after the move, a second click plays from the move (including it)
@@ -528,8 +582,21 @@ $("progress").addEventListener("input", () => {
   updateWindow();
 });
 
+let repeatBeforeSmart = null;
 const smart = initSmartCube({
+  player,
   get: () => ({ current, layout }),
+  /** a smart cube is connected: the cube shows what is left of the current algorithm, in a loop */
+  showRange(from, to) {
+    if (!current?.result || !layout) return;
+    if (repeatBeforeSmart === null) repeatBeforeSmart = repeatMode();
+    setRepeat("all");
+    useRange(from, to);
+  },
+  showFull() {
+    if (repeatBeforeSmart !== null) { setRepeat(repeatBeforeSmart); repeatBeforeSmart = null; }
+    if (current?.result && layout) { useSolution(); wantPlay = false; player.pause(); }
+  },
   setScramble(text) {
     $("scramble").value = text;
     solve();

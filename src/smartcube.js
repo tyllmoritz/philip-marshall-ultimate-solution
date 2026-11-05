@@ -1,5 +1,5 @@
 // Smart cube support (Web Bluetooth via cubing.js): the player on the left mirrors the real cube,
-// the one on the right repeats the next algorithm of the solution. "Next algorithm" is enabled once the
+// the solution cube loops what is left of the current algorithm. "Next algorithm" is enabled once the
 // real cube shows the state that algorithm leads to.
 import { connectSmartPuzzle } from "cubing/bluetooth";
 import { experimentalSolve3x3x3IgnoringCenters } from "cubing/search";
@@ -53,9 +53,8 @@ export function initSmartCube(api) {
   let plan = null; // { before: [KPattern per unit start], after: [...] , units }
   let algIndex = 0;
   let live = null;
-  let next = null;
-  let nextMs = 0;
-  let nextWaiting = false;
+  let following = true; // the solution cube follows the real cube's progress
+  let shownKey = "";
   let cameraLinked = false;
   // the live cube follows the orientation and the moves of the algorithm shown on the right
   let liveBase = ""; // alg that builds the real cube's state from solved
@@ -93,7 +92,7 @@ export function initSmartCube(api) {
   function computePlan() {
     plan = null;
     const { current, layout } = api.get();
-    if (!kpuzzle || !current?.result || !layout) return;
+    if (!puzzle || !kpuzzle || !current?.result || !layout) return;
     const cube = cubeFrameMoves(current.result.solution);
     // number of cube-frame moves before solution move g
     const cubeBefore = [0];
@@ -101,9 +100,11 @@ export function initSmartCube(api) {
     let p = kpuzzle.defaultPattern().applyAlg(current.scramble.join(" "));
     const states = [p];
     for (const m of cube) { p = p.applyMove(m); states.push(p); }
-    plan = { units: layout.units, at: (g) => states[cubeBefore[g]] };
+    plan = { units: layout.units, at: (g) => states[cubeBefore[g]], count: (g) => cubeBefore[g] };
     algIndex = 0;
-    showNext();
+    shownKey = "";
+    following = true;
+    showAlgorithm();
     check();
     resetLive();
   }
@@ -147,19 +148,28 @@ export function initSmartCube(api) {
     emitRotations();
   }
 
-  function showNext() {
-    const { current } = api.get();
-    if (!next || !plan) return;
-    const u = plan.units[algIndex];
-    $("bt-alg-title").textContent = u ? `Next algorithm (${algIndex + 1} of ${plan.units.length})` : "Solved";
-    if (!u) { next.alg = ""; nextMs = 0; return; }
-    const sol = current.result.solution;
-    next.experimentalSetupAlg = [...current.scramble, ...sol.slice(0, u.s)].join(" ");
-    next.alg = sol.slice(u.s, u.e).join(" ");
-    nextMs = sol.slice(u.s, u.e).reduce((t, m) => t + moveMs(m), 0);
-    next.timestamp = "start";
-    next.play();
-    alignLive();
+  /**
+   * The solution cube shows what is left of the current algorithm: moves the real cube has already made
+   * are not shown again. Progress is read from the real cube's state (compared with the state after each move
+   * of the algorithm), so it is right even if the cube was turned a bit more or less than the page noticed.
+   */
+  function showAlgorithm() {
+    if (!puzzle || !pattern) return; // no smart cube: the page shows the solution as it is
+    const u = unit();
+    if (!plan || !u) { api.showFull(); $("bt-next").textContent = "Next algorithm ▶"; return; }
+    $("bt-next").textContent = `Next algorithm ▶ (${algIndex + 1}/${plan.units.length})`;
+    let from = u.s, bestCount = -1;
+    for (let g = u.s; g <= u.e; g++) {
+      if (samePieces(pattern, plan.at(g)) && plan.count(g) > bestCount) { bestCount = plan.count(g); from = g; }
+    }
+    if (bestCount < 0) {
+      status("The cube is off the algorithm's path - undo your last turn(s), or use the cube's state as the scramble.", true);
+      from = u.s;
+    }
+    const key = `${algIndex}:${from}`;
+    if (key === shownKey || !following) return;
+    shownKey = key;
+    api.showRange(from, u.e);
   }
 
   /** Enable "Next algorithm" once the real cube is where this algorithm leads. */
@@ -190,6 +200,7 @@ export function initSmartCube(api) {
     lastMoveAt = Date.now();
     const move = e.latestAlgLeaf.toString();
     pattern = pattern.applyMove(move);
+    following = true;
     const sol = solution(), u = unit();
     if (!plan || !u) {
       live.experimentalAddMove(move); // no solution to follow: show the move as the cube reports it
@@ -202,6 +213,7 @@ export function initSmartCube(api) {
       if (cursor < u.e && !isRotation(sol[cursor])) cursor++; // that was the expected move
       if (cursor >= u.e || sol.slice(cursor, u.e).every(isRotation)) emitRotations(); // rotate back at the end
     }
+    showAlgorithm();
     check();
   }
 
@@ -282,19 +294,13 @@ export function initSmartCube(api) {
       pattern = await puzzle.getPattern();
       $("bt").hidden = false;
       live ??= makePlayer("bt-live");
-      next ??= makePlayer("bt-next-cube");
-      if (!cameraLinked) { linkCameras(live, next); cameraLinked = true; }
+      $("bt-live-wrap").hidden = false;
+      if (!cameraLinked) { linkCameras(live, api.player); cameraLinked = true; }
       // listeners go on only now that both cubes exist, so no move can arrive too early and be lost
       puzzle.addAlgLeafListener((e) => onMove(e).catch((err) => status("Could not show a move: " + err.message, true)));
       puzzle.onState?.(onCubeState);
       puzzle.onLost?.(() => { status("Connection to the cube was lost - press Connect again.", true); disconnect(false); });
       $("bt-reread").hidden = $("bt-reset").hidden = !puzzle.resetToSolved;
-      next.experimentalModel.detailedTimelineInfo.addFreshListener((info) => {
-        if (nextMs && !nextWaiting && info.timestamp >= nextMs - 5) {
-          nextWaiting = true;
-          setTimeout(() => { nextWaiting = false; next.timestamp = "start"; next.play(); }, 1000); // repeat
-        }
-      });
       liveBase = await patternToScramble(pattern);
       live.alg = "";
       live.experimentalSetupAlg = liveBase;
@@ -323,6 +329,8 @@ export function initSmartCube(api) {
     try { puzzle?.disconnect(); } catch {}
     puzzle = null;
     $("bt").hidden = true;
+    $("bt-live-wrap").hidden = true;
+    api.showFull();
     $("bt-connect").textContent = "Connect smart cube";
     $("bt-connect-gan").hidden = false;
     $("bt-connect-gan").disabled = false;
@@ -356,9 +364,12 @@ export function initSmartCube(api) {
   });
   $("bt-next").addEventListener("click", () => {
     algIndex++;
-    showNext();
+    shownKey = "";
+    following = true;
+    showAlgorithm();
+    alignLive();
     check();
-    status(algIndex >= (plan?.units.length ?? 0) ? "All algorithms done." : "Do the algorithm shown on the right.");
+    status(algIndex >= (plan?.units.length ?? 0) ? "All algorithms done." : "Do the algorithm shown on the left.");
   });
 
   if (!navigator.bluetooth) {
@@ -366,6 +377,6 @@ export function initSmartCube(api) {
     $("bt-connect").title = "Web Bluetooth is not available in this browser (try Chrome or Edge)";
   }
   // test hook: connect with a stand-in puzzle
-  window.__marshallSmart = { connect, cubeFrameMoves, get live() { return live; }, get next() { return next; }, get kpuzzle() { return kpuzzle; }, ready: cube3x3x3.kpuzzle().then((k) => (kpuzzle ??= k)) };
-  return { onSolution: computePlan };
+  window.__marshallSmart = { connect, cubeFrameMoves, get live() { return live; }, get kpuzzle() { return kpuzzle; }, ready: cube3x3x3.kpuzzle().then((k) => (kpuzzle ??= k)) };
+  return { onSolution: computePlan, release() { following = false; } };
 }
