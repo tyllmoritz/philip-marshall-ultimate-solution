@@ -171,15 +171,18 @@ export function initSmartCube(api) {
     }
   }
 
-  /** Bring the live cube to the orientation of the solution at the start of the current algorithm. */
+  /** Bring the live cube to the orientation of the solution at the start of the current algorithm (rotations are never given twice). */
   function alignLive() {
     const sol = solution(), u = unit();
     if (!u) return;
-    for (; cursor < u.s; cursor++) {
-      if (isRotation(sol[cursor])) { live.experimentalAddMove(sol[cursor]); displayRot.push(sol[cursor]); }
+    const need = sol.slice(0, u.s).filter(isRotation);
+    let j = u.s;
+    for (; j < u.e && isRotation(sol[j]); j++) need.push(sol[j]);
+    for (const t of need.slice(displayRot.length)) {
+      live.experimentalAddMove(t);
+      displayRot.push(t);
     }
-    cursor = u.s;
-    emitRotations();
+    cursor = j; // the next move of the algorithm
   }
 
   /** The moves that take the cube from where it is to the scramble (and an alg that builds where it is). */
@@ -196,7 +199,16 @@ export function initSmartCube(api) {
     return { start, moves, states };
   }
 
-  const done = (u) => plan && samePieces(pattern, plan.at(u.e));
+  /** The orientation the solution starts in (yellow on top starts with x2): step 0 is shown in it too, on both cubes. */
+  function leadFrame() {
+    const sol = solution();
+    const lead = [];
+    for (let i = 0; i < sol.length && isRotation(sol[i]); i++) lead.push(sol[i]);
+    const frame = lead.length ? rotationOf(lead) : null;
+    const toView = (m) => (frame ? Object.keys(frame).find((p) => frame[p] === m[0]) + m.slice(1) : m);
+    return { lead, toView };
+  }
+
   let planning = 0;
 
   /**
@@ -220,13 +232,15 @@ export function initSmartCube(api) {
         if (samePieces(pattern, plan.at(i))) { g = i; break; }
       }
     }
-    if (stage === 0 && g > 0) stage = 1; // already solving
+    // (the solution may start with rotations, so "at the scramble" means: no turn of the solution made yet)
+    const atScramble = g >= 0 && plan.count(g) === 0;
+    if (stage === 0 && g >= 0 && !atScramble) stage = 1; // already solving
     let info, range = null, custom = null;
     if (stage === 0) {
-      if (g === 0 && scrPath) {
+      if (atScramble && scrPath) {
         info = { title: "0. Scramble", sub: "from your cube to the scramble", done: true };
         range = { from: 0, to: 0 };
-      } else if (g === 0) {
+      } else if (atScramble) {
         stage = 1; // the cube is at the scramble already
       } else {
         const k = scrPath ? scrPath.states.map((p, i) => (samePieces(pattern, p) ? i : -1)).reduce((a, b) => Math.max(a, b), -1) : -1;
@@ -240,15 +254,17 @@ export function initSmartCube(api) {
         offPath = k < 0;
         if (k >= 0) {
           lastOn = { k };
-          const remaining = scrPath.moves.slice(k);
-          custom = { setup: [scrPath.start, ...scrPath.moves.slice(0, k)].join(" "), moves: remaining };
+          const { lead, toView } = leadFrame();
+          const remaining = scrPath.moves.slice(k).map(toView);
+          custom = { setup: [scrPath.start, ...scrPath.moves.slice(0, k), ...lead].join(" "), moves: remaining };
           info = { title: "0. Scramble", sub: "from your cube to the scramble", moves: remaining.join(" ") };
         } else {
           // off the path: first take the wrong turns back, then carry on from where the cube left the path
           const at = lastOn?.k ?? 0;
-          const undo = invertAlg(mergeTurns(recordedCube));
-          const moves = [...undo, ...scrPath.moves.slice(at)];
-          custom = { setup: [scrPath.start, ...scrPath.moves.slice(0, at), ...recordedCube].join(" "), moves };
+          const { lead, toView } = leadFrame();
+          const undo = invertAlg(mergeTurns(recordedCube)).map(toView);
+          const moves = [...undo, ...scrPath.moves.slice(at).map(toView)];
+          custom = { setup: [scrPath.start, ...scrPath.moves.slice(0, at), ...recordedCube, ...lead].join(" "), moves };
           info = { title: "0. Scramble", sub: "from your cube to the scramble", moves: moves.join(" "), undo: undo.length };
         }
       }
@@ -294,7 +310,7 @@ export function initSmartCube(api) {
         }
       }
     }
-    if (stage === 1 || (stage === 0 && g === 0)) offPath = stage === 1 ? offPath : false;
+    if (stage === 1 || (stage === 0 && atScramble)) offPath = stage === 1 ? offPath : false;
     if (!offPath) { recorded = []; recordedCube = []; }
     info.did = offPath && recorded.length ? `You did: ${recorded.join(" ")}` : "";
     $("bt-take").hidden = !offPath;
@@ -345,14 +361,16 @@ export function initSmartCube(api) {
     if (!plan || !u) {
       live.experimentalAddMove(move); // no solution to follow: show the move as the cube reports it
     } else {
-      emitRotations();
+      if (stage === 1) emitRotations();
       // the cube reports turns of its own faces; show them on whichever position that face has in the shown orientation
       const frame = displayRot.length ? rotationOf(displayRot) : null;
       const position = frame ? Object.keys(frame).find((p) => frame[p] === move[0]) : move[0];
       live.experimentalAddMove(position + move.slice(1));
       recorded.push(position + move.slice(1));
-      if (cursor < u.e && !isRotation(sol[cursor])) cursor++; // that was the expected move
-      if (cursor >= u.e || sol.slice(cursor, u.e).every(isRotation)) emitRotations(); // rotate back at the end
+      if (stage === 1) {
+        if (cursor < u.e && !isRotation(sol[cursor])) cursor++; // that was the expected move
+        if (cursor >= u.e || sol.slice(cursor, u.e).every(isRotation)) emitRotations(); // rotate back at the end
+      }
     }
     showAlgorithm();
   }

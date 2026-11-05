@@ -190,3 +190,6 @@ The same applies on the way to the scramble in step 0.
 
 A solved cube is the start of a new round, not the end of one: connected solved, the window shows step 0 - the path from the solved cube to the scramble. Once the cube is solved again the
 window says "Solved" with a clickable **new scramble**, which generates a scramble, solves it and goes back to step 0 (scrambling), then solving, then scrambling again.
+
+With *Yellow on top from the start* the solution begins with `x2`; step 0 is shown in that orientation too, on both cubes (the scramble moves are written for yellow on top), so
+the cubes agree from the moment they connect and no rotation is given twice when step 1 starts.
