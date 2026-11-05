@@ -15,7 +15,7 @@
   "license": "ISC",
   "dependencies": {
     "cubing": "^0.53.3",
-    "gan-web-bluetooth": "^3.0.2"
+    "smartcube-web-bluetooth": "github:poliva/smartcube-web-bluetooth#2077416d6c828ec926dee424cf1bbfe4c0f25a47"
   },
   "devDependencies": {
     "vite": "^8.3.5"

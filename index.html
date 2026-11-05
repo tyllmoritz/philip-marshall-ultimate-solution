@@ -68,8 +68,7 @@
       <div class="label-row">
         <strong>Smart cube</strong>
         <span class="bt-buttons">
-          <button id="bt-connect" type="button" title="GAN (first generation), GoCube, Giiker, MoYu, QiYi, ...">Connect smart cube</button>
-          <button id="bt-connect-gan" type="button" title="GAN 356 i3, 356 i Carry 2, 12 ui, Maglev, ... and MoYu AI 2023">Connect GAN cube (Gen2-4)</button>
+          <button id="bt-connect" type="button" title="GAN (all generations), MoYu, Giiker/Mi, GoCube, QiYi, XMD Tornado">Connect smart cube</button>
         </span>
       </div>
       <p id="bt-status" class="hint" role="status">Connect a Bluetooth cube to see its state next to the next algorithm of the solution.</p>
@@ -107,7 +106,7 @@
         <li><b>Five corner pieces</b> — until the last 2–3 corners share one side; the Corner Series (<b>Niklas</b>, <code>U R U' L' U R' U' L</code> and its mirrors/rotations) cycles three corners without touching any edge.</li>
         <li><b>The End Game</b> — the last three corners fall into place together.</li>
       </ol>
-      <p>Method and name: <a href="https://www.helm.lu/cube/MarshallPhilipp/">Philip Marshall's solution</a>. At each step the solver builds several candidate solutions (series with setup that place more pieces without disturbing finished ones) and keeps the one with the lowest movecount coefficient (MCC). It is an independent implementation, so move counts differ from the original write-up. Movecount coefficient by <a href="https://github.com/trangium/trangium.github.io/tree/master/MovecountCoefficient">Trangium</a> (MIT). Cube rendering by <a href="https://js.cubing.net/cubing/">cubing.js</a>. Smart cube support builds on <a href="https://github.com/afedotov/gan-web-bluetooth">gan-web-bluetooth</a> (Andy Fedotov, MIT) and takes ideas from <a href="https://github.com/poliva/smartcube-web-bluetooth">smartcube-web-bluetooth</a> and <a href="https://github.com/poliva/cubedex">Cubedex</a> (Pau Oliva, MIT).</p>
+      <p>Method and name: <a href="https://www.helm.lu/cube/MarshallPhilipp/">Philip Marshall's solution</a>. At each step the solver builds several candidate solutions (series with setup that place more pieces without disturbing finished ones) and keeps the one with the lowest movecount coefficient (MCC). It is an independent implementation, so move counts differ from the original write-up. Movecount coefficient by <a href="https://github.com/trangium/trangium.github.io/tree/master/MovecountCoefficient">Trangium</a> (MIT). Cube rendering by <a href="https://js.cubing.net/cubing/">cubing.js</a>. Smart cube support uses <a href="https://github.com/poliva/smartcube-web-bluetooth">smartcube-web-bluetooth</a> (Pau Oliva, MIT; a fork of <a href="https://github.com/afedotov/gan-web-bluetooth">gan-web-bluetooth</a> by Andy Fedotov) and takes ideas from <a href="https://github.com/poliva/cubedex">Cubedex</a>.</p>
     </section>
   </main>
 

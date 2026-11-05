@@ -1,11 +1,10 @@
 // Smart cube support (Web Bluetooth via cubing.js): the player on the left mirrors the real cube,
 // the solution cube loops what is left of the current algorithm. "Next algorithm" is enabled once the
 // real cube shows the state that algorithm leads to.
-import { connectSmartPuzzle } from "cubing/bluetooth";
 import { experimentalSolve3x3x3IgnoringCenters } from "cubing/search";
 import { cube3x3x3 } from "cubing/puzzles";
 import { TwistyPlayer } from "cubing/twisty";
-import { connectGanCube } from "gan-web-bluetooth";
+import { connectSmartCube } from "smartcube-web-bluetooth";
 import { rotationOf } from "./engine/flat.js";
 import { faceletsToPattern } from "./facelets.js";
 
@@ -295,15 +294,15 @@ export function initSmartCube(api) {
   }
 
   /**
-   * GAN Gen2, Gen3 and Gen4 cubes (356 i3, 356 i Carry 2, 12 ui, Maglev, ...) talk a newer, encrypted protocol that
-   * cubing.js does not speak (it only knows the first generation); gan-web-bluetooth does. This wraps its connection
+   * One connection for every supported brand (GAN Gen1-4, MoYu, Giiker/Mi, GoCube, QiYi, ...): smartcube-web-bluetooth
+   * recognises the cube, speaks its protocol and reports the same events for all of them. This wraps its connection
    * in the few methods the rest of the page needs.
    */
-  async function connectGan() {
+  async function connectAnyCube() {
     kpuzzle ??= await cube3x3x3.kpuzzle();
     const macs = loadMacs();
     let usedSaved = null; // device name whose saved MAC address was used this time
-    const conn = await connectGanCube(async (device, isFallback) => {
+    const conn = await connectSmartCube(async (device, isFallback) => {
       const saved = macs[device.name];
       if (!isFallback) {
         if (saved) usedSaved = device.name;
@@ -320,16 +319,20 @@ export function initSmartCube(api) {
     let facelets = null;
     const sub = conn.events$.subscribe((ev) => {
       if (ev.type === "FACELETS") {
-        facelets = ev.facelets;
-        waiting.splice(0).forEach((resolve) => resolve(facelets));
-        faceletListeners.forEach((f) => f(ev.facelets));
+        if (ev.facelets.length !== 54) return; // only the 3x3x3 is supported
+        // snapshots from the cube itself are the truth; "moves" states are only what the driver added up
+        if (ev.source !== "moves") {
+          facelets = ev.facelets;
+          waiting.splice(0).forEach((resolve) => resolve(facelets));
+          faceletListeners.forEach((f) => f(ev.facelets));
+        }
       } else if (ev.type === "MOVE") {
         listeners.forEach((f) => f({ latestAlgLeaf: ev.move, timeStamp: Date.now() }));
       } else if (ev.type === "DISCONNECT") {
         lostListeners.forEach((f) => f());
       }
     });
-    await conn.sendCubeCommand({ type: "REQUEST_FACELETS" });
+    if (conn.capabilities.facelets) await conn.sendCommand({ type: "REQUEST_FACELETS" });
     // a MAC address is only kept once the cube's state could be read with it (a wrong one decrypts to nonsense)
     try {
       const first = facelets ?? await Promise.race([
@@ -343,10 +346,9 @@ export function initSmartCube(api) {
       if (usedSaved) { delete macs[usedSaved]; storeMacs(macs); }
       throw new Error(`Could not read the cube (${err.message}); check its MAC address and try again.`);
     }
-    macs[conn.deviceName] = conn.deviceMAC;
-    storeMacs(macs);
+    if (conn.deviceMAC) { macs[conn.deviceName] = conn.deviceMAC; storeMacs(macs); }
     return {
-      name: () => conn.deviceName,
+      name: () => `${conn.deviceName} (${conn.protocol?.name ?? "smart cube"})`,
       disconnect() { sub.unsubscribe(); conn.disconnect(); },
       async getPattern() {
         return faceletsToPattern(kpuzzle, facelets ?? await new Promise((resolve) => waiting.push(resolve)));
@@ -355,19 +357,17 @@ export function initSmartCube(api) {
       // the cube also reports its state now and then; used to notice and repair missed moves
       onState: (f) => faceletListeners.push((str) => f(faceletsToPattern(kpuzzle, str))),
       onLost: (f) => lostListeners.push(f),
-      readState: () => conn.sendCubeCommand({ type: "REQUEST_FACELETS" }),
-      resetToSolved: () => conn.sendCubeCommand({ type: "REQUEST_RESET" }),
+      readState: conn.capabilities.facelets ? () => conn.sendCommand({ type: "REQUEST_FACELETS" }) : undefined,
+      resetToSolved: conn.capabilities.reset ? () => conn.sendCommand({ type: "REQUEST_RESET" }) : undefined,
     };
   }
 
   async function connect(provider) {
     $("bt-connect").disabled = true;
-    $("bt-connect-gan").disabled = true;
-    $("bt-connect-gan").classList.remove("hint-me");
     status("Connecting…");
     try {
       kpuzzle ??= await cube3x3x3.kpuzzle();
-      puzzle = await (provider ?? connectSmartPuzzle)();
+      puzzle = await (provider ?? connectAnyCube)();
       pattern = await puzzle.getPattern();
       $("bt").hidden = false;
       live ??= makePlayer("bt-live");
@@ -377,7 +377,8 @@ export function initSmartCube(api) {
       puzzle.addAlgLeafListener((e) => onMove(e).catch((err) => status("Could not show a move: " + err.message, true)));
       puzzle.onState?.(onCubeState);
       puzzle.onLost?.(() => { status("Connection to the cube was lost - press Connect again.", true); disconnect(false); });
-      $("bt-reread").hidden = $("bt-reset").hidden = !puzzle.resetToSolved;
+      $("bt-reread").hidden = !puzzle.readState;
+      $("bt-reset").hidden = !puzzle.resetToSolved;
       liveBase = await patternToScramble(pattern);
       live.alg = "";
       live.experimentalSetupAlg = liveBase;
@@ -385,20 +386,12 @@ export function initSmartCube(api) {
       cursor = 0;
       $("bt-connect").textContent = "Disconnect";
       $("bt-connect").disabled = false;
-      $("bt-connect-gan").hidden = true;
       status(`Connected${puzzle.name?.() ? ": " + puzzle.name() : ""}.`);
       computePlan();
     } catch (err) {
       $("bt-connect").disabled = false;
-      $("bt-connect-gan").disabled = false;
       const msg = String(err?.message ?? "");
-      if (/No Services matching UUID/i.test(msg)) {
-        // cubing.js picked its first-generation GAN driver for a cube that speaks a newer protocol
-        status("This cube uses a newer GAN protocol (Gen2-Gen4) that cubing.js cannot read. Press \"Connect GAN cube (Gen2-4)\" and pick it again.", true);
-        $("bt-connect-gan").classList.add("hint-me");
-      } else {
-        status(msg ? "Could not connect: " + msg : "Could not connect.", true);
-      }
+      status(msg ? "Could not connect: " + msg : "Could not connect.", true);
     }
   }
 
@@ -410,13 +403,10 @@ export function initSmartCube(api) {
     $("bt-take").hidden = true;
     api.showFull();
     $("bt-connect").textContent = "Connect smart cube";
-    $("bt-connect-gan").hidden = false;
-    $("bt-connect-gan").disabled = false;
     if (say) status("Disconnected.");
   }
 
   $("bt-connect").addEventListener("click", () => (puzzle ? disconnect() : connect()));
-  $("bt-connect-gan").addEventListener("click", () => connect(connectGan));
   $("bt-take").addEventListener("click", async () => {
     if (!pattern) return;
     status("Reading the cube…");
@@ -443,7 +433,6 @@ export function initSmartCube(api) {
   $("algo-moves").addEventListener("click", (e) => { if (e.currentTarget.classList.contains("done")) nextAlgorithm(); });
 
   if (!navigator.bluetooth) {
-    $("bt-connect-gan").title = "Web Bluetooth is not available in this browser (try Chrome or Edge)";
     $("bt-connect").title = "Web Bluetooth is not available in this browser (try Chrome or Edge)";
   }
   // test hook: connect with a stand-in puzzle
