@@ -123,7 +123,7 @@ function setRepeat(mode) {
   b.dataset.mode = mode;
   b.value = String(REPEATS.indexOf(mode));
 }
-setRepeat("off");
+setRepeat("3"); // the default: repeat three moves
 
 function clearHighlight() {
   lit = null;
@@ -363,7 +363,8 @@ function updateWindow(g = indexAt(lastTs)) {
   if (!view) return;
   const mode = repeatMode();
   let range = { s: view.from, e: view.to };
-  if (mode === "algo") range = layout.units.find((x) => g >= x.s && g < x.e) ?? range;
+  if (view.custom && !/^\d$/.test(mode)) range = range; // a list of its own (step 0): algo, step and all are all of it
+  else if (mode === "algo") range = layout.units.find((x) => g >= x.s && g < x.e) ?? range;
   else if (mode === "step") range = layout.steps.find((x) => g >= x.s && g < x.e) ?? range;
   else if (/^\d$/.test(mode) && +mode > 0) {
     // that many moves, counted from the current one (rotations come along for free)
@@ -568,6 +569,7 @@ $("solution").addEventListener("click", (e) => {
   if (t.classList.contains("unit")) {
     const u = layout.units[+t.dataset.unit];
     scope = { s: u.s, e: u.e };
+    setRepeat("algo"); // clicking a series repeats it
     playFrom(msOf(u.s), u.s);
   } else if (t.classList.contains("step")) {
     const st = layout.steps[+t.dataset.step];
@@ -576,7 +578,7 @@ $("solution").addEventListener("click", (e) => {
     playFrom(msOf(st.s), st.s);
   } else {
     scope = null;
-    if (repeatMode() === "step" || repeatMode() === "algo") setRepeat("off");
+    setRepeat("all"); // the outer border plays everything
     playFrom(0, 0);
   }
 });
@@ -657,7 +659,6 @@ $("progress").addEventListener("input", () => {
   updateWindow();
 });
 
-let repeatBeforeSmart = null;
 const smart = initSmartCube({
   player,
   get: () => ({ current, layout }),
@@ -668,8 +669,6 @@ const smart = initSmartCube({
   /** a smart cube is connected: the cube shows what is left of the current algorithm, in a loop */
   showRange(from, to) {
     if (!current?.result || !layout) return;
-    if (repeatBeforeSmart === null) repeatBeforeSmart = repeatMode();
-    setRepeat("all");
     useRange(from, to);
   },
   /** coloured groups of solution unit k from global move `from` on */
@@ -699,15 +698,12 @@ const smart = initSmartCube({
     $("algo-did").textContent = info.did ?? "";
   },
   showCustom(setup, moves) {
-    if (repeatBeforeSmart === null) repeatBeforeSmart = repeatMode();
-    setRepeat("all");
     useCustom(setup, moves);
   },
   showFull() {
     infoLocked = false;
     $("algo-did").hidden = true;
     $("algo-moves").classList.remove("done");
-    if (repeatBeforeSmart !== null) { setRepeat(repeatBeforeSmart); repeatBeforeSmart = null; }
     if (current?.result && layout) { useSolution(); wantPlay = false; player.pause(); }
   },
   setScramble(text) {

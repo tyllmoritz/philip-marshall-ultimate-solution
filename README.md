@@ -201,3 +201,6 @@ The line above the cubes highlights the move being played, also for step 0 and f
 
 The line above the cubes is grouped and coloured like the solution list - one chip per part (setup, rotation, series, repair; Hedgeslammer in blue, Niklas in orange, ...);
 turns to take back after a wrong move are a red chip in front.
+
+The repeat slider works the same with and without a smart cube (the remaining algorithm or the step 0 list is what it loops over) and starts at `3`.
+Clicking a series sets it to `algo`, a step to `step`, the outer border to `all`.
