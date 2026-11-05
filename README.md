@@ -178,3 +178,10 @@ turn ends step 3. In a random sample 23 of 30 solves reached the key position; o
 (GAN Gen2-4 protocol), Trangium's [movecount coefficient](https://github.com/trangium/trangium.github.io/tree/master/MovecountCoefficient), rubiksplace.com's F2L algorithms, and
 ideas from Pau Oliva's [smartcube-web-bluetooth](https://github.com/poliva/smartcube-web-bluetooth) (a multi-brand successor of gan-web-bluetooth) and
 [Cubedex](https://github.com/poliva/cubedex) (an algorithm trainer built on them).
+
+### Wrong turns
+
+When the smart cube is turned away from the algorithm, the turn list starts with the moves that take it back (shown in red, in the shown orientation), then continues
+with the rest of the algorithm. Before that the page checks whether the state is just another way to a state on the path - then nothing is added (`L L` for `L2`, `U U'`, ...) - and
+whether one or two turns lead to a state further along the path, which is shorter than taking everything back (`L` after a first `L` instead of `L' L2`).
+The same applies on the way to the scramble in step 0.

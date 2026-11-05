@@ -130,3 +130,4 @@ a.btn.disabled { opacity: .5; pointer-events: none; }
 .algo-did { margin-top: 2px; font: 600 .95rem ui-monospace, monospace; color: var(--err); overflow-wrap: anywhere; }
 .algo-moves span { padding: 0 2px; border-radius: 4px; }
 .algo-moves .now { background: var(--accent); color: #fff; }
+.algo-moves .undo { color: var(--err); }

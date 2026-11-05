@@ -6,6 +6,8 @@ import { cube3x3x3 } from "cubing/puzzles";
 import { TwistyPlayer } from "cubing/twisty";
 import { connectSmartCube } from "smartcube-web-bluetooth";
 import { rotationOf } from "./engine/flat.js";
+import { invertAlg } from "./engine/cube.js";
+import { mergeTurns } from "./engine/solver.js";
 import { faceletsToPattern } from "./facelets.js";
 
 const $ = (id) => document.getElementById(id);
@@ -45,6 +47,29 @@ function storeMacs(macs) {
   try { localStorage.setItem(MAC_KEY, JSON.stringify(macs)); } catch {}
 }
 
+const TURNS = ["U", "D", "F", "B", "R", "L"].flatMap((f) => [f, f + "'", f + "2"]);
+
+/** One or two turns from `pattern` to a state of the solution at or after token `from` (within the algorithm) - or null. */
+function pathShortcut(plan, pattern, from, to) {
+  const onPath = (p) => { for (let g = to; g >= from; g--) if (samePieces(p, plan.at(g))) return g; return -1; };
+  let best = null;
+  for (const a of TURNS) {
+    const p1 = pattern.applyMove(a);
+    const g1 = onPath(p1);
+    if (g1 >= 0 && (!best || best.moves.length > 1)) best = { moves: [a], g: g1 };
+  }
+  if (best) return best;
+  for (const a of TURNS) {
+    const p1 = pattern.applyMove(a);
+    for (const b of TURNS) {
+      if (b[0] === a[0]) continue;
+      const g2 = onPath(p1.applyMove(b));
+      if (g2 >= 0) return { moves: [a, b], g: g2 };
+    }
+  }
+  return null;
+}
+
 export function initSmartCube(api) {
   let kpuzzle = null;
   let puzzle = null; // connected BluetoothPuzzle
@@ -58,6 +83,8 @@ export function initSmartCube(api) {
   let scrPath = null; // { start, moves, states, token }: the way from where the cube was to the scramble
   let recorded = []; // moves made since the cube left the path
   let offPath = false;
+  let recordedCube = []; // the same moves as the cube reports them (its own faces)
+  let lastOn = null; // where the cube last was on the path: { g } on the solution, { k } on the way to the scramble
   let cameraLinked = false;
   // the live cube follows the orientation and the moves of the algorithm shown on the right
   let liveBase = ""; // alg that builds the real cube's state from solved
@@ -110,6 +137,8 @@ export function initSmartCube(api) {
     stage = 0;
     scrPath = null;
     recorded = [];
+    recordedCube = [];
+    lastOn = null;
     showAlgorithm();
     resetLive();
   }
@@ -203,11 +232,17 @@ export function initSmartCube(api) {
         }
         offPath = k < 0;
         if (k >= 0) {
+          lastOn = { k };
           const remaining = scrPath.moves.slice(k);
           custom = { setup: [scrPath.start, ...scrPath.moves.slice(0, k)].join(" "), moves: remaining };
           info = { title: "0. Scramble", sub: "from your cube to the scramble", moves: remaining.join(" ") };
         } else {
-          info = { title: "0. Scramble", sub: "from your cube to the scramble", moves: scrPath.moves.join(" ") };
+          // off the path: first take the wrong turns back, then carry on from where the cube left the path
+          const at = lastOn?.k ?? 0;
+          const undo = invertAlg(mergeTurns(recordedCube));
+          const moves = [...undo, ...scrPath.moves.slice(at)];
+          custom = { setup: [scrPath.start, ...scrPath.moves.slice(0, at), ...recordedCube].join(" "), moves };
+          info = { title: "0. Scramble", sub: "from your cube to the scramble", moves: moves.join(" "), undo: undo.length };
         }
       }
     }
@@ -225,17 +260,38 @@ export function initSmartCube(api) {
       } else {
         const inside = g >= u.s && g <= u.e;
         offPath = g < 0;
-        const from = inside ? g : u.s;
         const base = api.unitInfo(algIndex);
-        info = { ...base, moves: solution().slice(from, u.e).join(" "), done: inside && g === u.e };
-        range = { from, to: u.e };
+        if (inside) {
+          lastOn = { g };
+          info = { ...base, moves: solution().slice(g, u.e).join(" "), done: g === u.e };
+          range = { from: g, to: u.e };
+        } else {
+          // off the path: first take the wrong turns back (unless they were just another way to a state on the path,
+          // which the state comparison above has already recognised), then carry on from where the cube left it
+          const at = lastOn?.g ?? u.s;
+          const sol = solution();
+          const rotations = sol.slice(0, at).filter(isRotation);
+          const frame = rotations.length ? rotationOf(rotations) : null; // what the shown orientation was at that point
+          const toView = (m) => (frame ? Object.keys(frame).find((p) => frame[p] === m[0]) + m.slice(1) : m);
+          const undo = invertAlg(mergeTurns(recordedCube)).map(toView);
+          let lead = undo, resume = at;
+          // maybe one or two turns lead to a state further on the path (a different way to the same state): then that
+          // is shorter than taking everything back
+          const fix = pathShortcut(plan, pattern, at, u.e);
+          const count = (from) => sol.slice(from, u.e).filter((m) => !isRotation(m)).length;
+          if (fix && fix.moves.length + count(fix.g) < undo.length + count(at)) { lead = fix.moves.map(toView); resume = fix.g; }
+          const moves = [...lead, ...sol.slice(resume, u.e)];
+          const setup = [...api.get().current.scramble, ...sol.slice(0, at), ...recordedCube.map(toView)].join(" ");
+          custom = { setup, moves };
+          info = { ...base, moves: moves.join(" "), undo: lead.length };
+        }
       }
     }
     if (stage === 1 || (stage === 0 && g === 0)) offPath = stage === 1 ? offPath : false;
-    if (!offPath) recorded = [];
+    if (!offPath) { recorded = []; recordedCube = []; }
     info.did = offPath && recorded.length ? `You did: ${recorded.join(" ")}` : "";
     $("bt-take").hidden = !offPath;
-    const key = `${stage}:${algIndex}:${range ? range.from : custom ? "c" + custom.setup : "p"}:${offPath}`;
+    const key = `${stage}:${algIndex}:${range ? range.from : "p"}:${offPath}:${custom ? custom.setup + "|" + custom.moves.join(" ") : ""}`;
     api.setInfo(info);
     if (key === shownKey || !following) return;
     shownKey = key;
@@ -276,6 +332,7 @@ export function initSmartCube(api) {
     lastMoveAt = Date.now();
     const move = e.latestAlgLeaf.toString();
     pattern = pattern.applyMove(move);
+    recordedCube.push(move);
     following = true;
     const sol = solution(), u = unit();
     if (!plan || !u) {

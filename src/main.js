@@ -637,8 +637,17 @@ const smart = initSmartCube({
     $("algo-title").textContent = info.title;
     $("algo-sub").textContent = info.sub ?? "";
     const m = $("algo-moves");
-    m.textContent = info.done ? "done: next algorithm" : (info.moves ?? "");
     m.classList.toggle("done", !!info.done);
+    if (info.done) m.textContent = "done: next algorithm";
+    else {
+      m.replaceChildren();
+      (info.moves ?? "").split(" ").filter(Boolean).forEach((t, i) => {
+        const span = document.createElement("span");
+        span.textContent = t;
+        if (i < (info.undo ?? 0)) span.className = "undo"; // wrong turns to take back come first
+        m.append(span, " ");
+      });
+    }
     $("algo-did").hidden = !info.did;
     $("algo-did").textContent = info.did ?? "";
   },
