@@ -146,3 +146,8 @@ Behind the cubes the panel names the current step, says in a short subtitle what
 With a smart cube connected the solution cube loops only what is *left* of the current algorithm: the cube's state is compared with the state after every move of the
 algorithm, moves already made are not shown (nor in the text), and the animation starts from the cube's current state. A cube that is off the algorithm's path
 is reported. Clicking in the solution list goes back to the full solution until the next turn on the real cube.
+
+## Trimmed sexy moves in step 2
+
+Step 2 does not care about the top layer, so an edge series that ends with a top-layer turn (`R U R' U'`, `U R U' R'`, ...) may leave that last turn out
+(`R U' R'`). That flips the edge parity; step 3 ends with the aligning `U`/`U'` turn that sets it right again (it is only there when needed).

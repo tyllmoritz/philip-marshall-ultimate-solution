@@ -322,6 +322,23 @@ export class MarshallSolver {
     even.sort((a, b) => a.cost - b.cost);
     // odd-parity entries are only needed when F2L algorithms leave an odd edge permutation
     even.withOdd = list.sort((a, b) => a.cost - b.cost);
+    // Step 2 does not care what happens to the top layer, so a series that ends with a turn of the top layer
+    // (the sexy move R U R' U') can leave that last turn out. It changes the edge parity; the aligning
+    // U turn at the end of step 3 puts that right again.
+    if (plain) {
+      const trimmed = new Map();
+      for (const c of conj.values()) {
+        const last = c.series[c.series.length - 1];
+        if (c.word.length || c.series.join() !== c.canon.join() || !last || last[0] !== "U" || last.endsWith("2")) continue;
+        const tser = c.series.slice(0, -1);
+        const flat = this.run(this.solvedFlat, [...c.setup, ...tser, ...invertAlg(c.setup)]);
+        const cost = c.cost - weight([last]);
+        const k = hashFlat(flat);
+        const cur = trimmed.get(k);
+        if (!cur || cost < cur.cost) trimmed.set(k, { flat, pre: [], setup: c.setup, series: tser, canon: tser, word: [], cost, mask: solvedMask(flat), trim: true });
+      }
+      even.step2 = [...even, ...trimmed.values()].sort((a, b) => a.cost - b.cost);
+    }
     return even;
   }
 
@@ -760,7 +777,7 @@ export class MarshallSolver {
   step2Candidates(state, f2l) {
     const mid = { target: { edges: MIDDLE, corners: [] }, goal: 3 };
     const plain = (pick) => {
-      const r = this.climb(state, this.edgeTable, { ...mid, pick });
+      const r = this.climb(state, this.edgeTable.step2, { ...mid, pick });
       return { name: "Center Section Edge Pieces", parts: this.actionsToParts(r.actions, "edge"), state: r.state, corners: [], pairs: 0 };
     };
     if (!f2l) return this.rank(plain);
@@ -792,7 +809,7 @@ export class MarshallSolver {
     const stages = [
       (s) => this.step2Candidates(s, f2l),
       (s, ctx) => this.rank((pick) => {
-        const r = ctx.corners.length ? this.finishEdges(s, ctx.corners, edgeTarget, pick) : this.climb(s, this.edgeTable, { ...edgeTarget, pick });
+        const r = ctx.corners.length ? this.finishEdges(s, ctx.corners, edgeTarget, pick) : this.climb(s, this.edgeParity(s) ? this.edgeTable.withOdd : this.edgeTable, { ...edgeTarget, pick });
         return { parts: this.actionsToParts(r.actions, "edge"), state: r.state };
       }).map((c) => ({ ...c, name: "Top Edge Pieces" })),
       cornerStage("Five Corner Pieces", 5, fiveOnASide),
