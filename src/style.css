@@ -91,8 +91,8 @@ code { font: 14px ui-monospace, monospace; overflow-wrap: anywhere; }
 .controls button#playpause:disabled { background: var(--line); border-color: var(--line); color: var(--muted); opacity: 1; }
 @media (prefers-color-scheme: dark) { .controls button#playpause { color: #0b1d2e; } .controls button#playpause:disabled { color: var(--muted); } }
 #next-series { transform: none; }
-.repeat-slider { display: flex; align-items: center; gap: 8px; flex: 1 1 260px; max-width: 360px; }
-.repeat-label { font-size: .85rem; color: var(--muted); white-space: nowrap; }
+.loop-slider { display: flex; align-items: center; gap: 8px; flex: 1 1 260px; max-width: 360px; }
+.loop-label { font-size: .85rem; color: var(--muted); white-space: nowrap; }
 .slider-box { flex: 1; min-width: 0; }
 .slider-box input { width: 100%; margin: 0; accent-color: var(--accent); }
 .slider-box input[data-mode="off"] { opacity: .6; }

@@ -84,9 +84,9 @@ for the Random scramble button (a proper random-state 3x3x3 scramble).
 ## Playback
 
 The player always holds the full solution; cubing's own controls are hidden in favour of our own: a progress bar,
-previous/next step, previous/next series, play/pause, a repeat button that cycles off / all / step / algo, and a
+previous/next step, previous/next series, play/pause, a loop slider (off, 1, 2, 3 moves, algo, step, all), and a
 Twizzle link that opens the solution with `//` comments explaining every move. Clicking a series plays just that series,
-clicking a step repeats that step, clicking the outer border plays everything, and a second click on a move plays from it.
+clicking a step loops that step, clicking the outer border plays everything, and a second click on a move plays from it.
 After every jump (and before every loop) the animation holds for one rotation. The borders of the solution, step and
 series that are playing are highlighted (hovering uses a lighter shade).
 
@@ -194,13 +194,13 @@ window says "Solved" with a clickable **new scramble**, which generates a scramb
 With *Yellow on top from the start* the solution begins with `x2`; step 0 is shown in that orientation too, on both cubes (the scramble moves are written for yellow on top), so
 the cubes agree from the moment they connect and no rotation is given twice when step 1 starts.
 
-## Repeat slider
+## Loop slider
 
-*Repeat* is a slider: `0` (off), `1`, `2`, `3` (that many moves, counted from the current one - meant for a cube without Bluetooth), `algo` (the current series), `step` and `all`.
+*Loop* is a slider: `off`, `1`, `2`, `3` (that many moves, counted from the current one - meant for a cube without Bluetooth), `algo` (the current series), `step` and `all`.
 The line above the cubes highlights the move being played, also for step 0 and for the lists a smart cube shows; the solution list lights up only while the solution itself plays.
 
 The line above the cubes is grouped and coloured like the solution list - one chip per part (setup, rotation, series, repair; Hedgeslammer in blue, Niklas in orange, ...);
 turns to take back after a wrong move are a red chip in front.
 
-The repeat slider works the same with and without a smart cube (the remaining algorithm or the step 0 list is what it loops over) and starts at `3`.
+The loop slider works the same with and without a smart cube (the remaining algorithm or the step 0 list is what it loops over) and starts at `3`.
 Clicking a series sets it to `algo`, a step to `step`, the outer border to `all`.

@@ -106,24 +106,24 @@ let isPlaying = false;
 let wantPlay = false; // playback was asked for and has not been stopped yet
 let holding = false; // waiting one rotation before (re)starting
 let holdTimer = null;
-let scope = null; // {s, e}: a series that was clicked and plays on its own (repeat off)
+let scope = null; // {s, e}: a series that was clicked and plays on its own (loop off)
 let win = null; // {a, b} in ms: what the current playback loops over or stops at
 let dragging = false;
 let pin = null; // {ms, g}: a jump target; at exactly this time the move g is the current one (not the one that just ended)
 const HOLD = 1000; // one rotation of pause before and after jumps
-const REPEATS = ["off", "1", "2", "3", "algo", "step", "all"]; // the slider stops, left to right
+const LOOPS = ["off", "1", "2", "3", "algo", "step", "all"]; // the slider stops, left to right
 
 // whole-turn animation lengths used by cubing.js, to turn a move index into a timestamp
 const moveMs = (m) => (m.endsWith("2") ? 1500 : 1000);
 const msOf = (g) => view.cum[Math.min(Math.max(g - view.from, 0), view.moves.length)];
-const repeatMode = () => $("repeat").dataset.mode;
+const loopMode = () => $("loop").dataset.mode;
 
-function setRepeat(mode) {
-  const b = $("repeat");
+function setLoop(mode) {
+  const b = $("loop");
   b.dataset.mode = mode;
-  b.value = String(REPEATS.indexOf(mode));
+  b.value = String(LOOPS.indexOf(mode));
 }
-setRepeat("3"); // the default: repeat three moves
+setLoop("3"); // the default: loop three moves
 
 function clearHighlight() {
   lit = null;
@@ -142,7 +142,7 @@ function indexAt(ts) {
 function markActive(g) {
   document.querySelectorAll(".active").forEach((e) => e.classList.remove("active"));
   if (!view || view.custom) return;
-  const wholeSolution = !scope && (repeatMode() === "off" || repeatMode() === "all");
+  const wholeSolution = !scope && (loopMode() === "off" || loopMode() === "all");
   if (wholeSolution) $("solution").classList.add("active");
   const step = layout.steps.findIndex((x) => g >= x.s && g < x.e);
   const unit = layout.units.findIndex((x) => g >= x.s && g < x.e);
@@ -273,7 +273,7 @@ function onTime(ts) {
   // at the end of the playback window: pause one rotation, then loop (or stop)
   if (wantPlay && !holding && win && ts >= win.b - 5) {
     player.pause();
-    if (repeatMode() !== "off") {
+    if (loopMode() !== "off") {
       afterHold(() => {
         player.timestamp = win.a;
         afterHold(() => player.play());
@@ -358,10 +358,10 @@ function useCustom(setup, moves) {
   if (moves.length) playFrom(0, 0);
 }
 
-/** What a playback loops over / stops at, from the repeat mode, the clicked scope and position g. */
+/** What a playback loops over / stops at, from the loop mode, the clicked scope and position g. */
 function updateWindow(g = indexAt(lastTs)) {
   if (!view) return;
-  const mode = repeatMode();
+  const mode = loopMode();
   let range = { s: view.from, e: view.to };
   if (view.custom && !/^\d$/.test(mode)) range = range; // a list of its own (step 0): algo, step and all are all of it
   else if (mode === "algo") range = layout.units.find((x) => g >= x.s && g < x.e) ?? range;
@@ -569,16 +569,16 @@ $("solution").addEventListener("click", (e) => {
   if (t.classList.contains("unit")) {
     const u = layout.units[+t.dataset.unit];
     scope = { s: u.s, e: u.e };
-    setRepeat("algo"); // clicking a series repeats it
+    setLoop("algo"); // clicking a series loops it
     playFrom(msOf(u.s), u.s);
   } else if (t.classList.contains("step")) {
     const st = layout.steps[+t.dataset.step];
     scope = null;
-    setRepeat("step"); // clicking a step repeats it
+    setLoop("step"); // clicking a step loops it
     playFrom(msOf(st.s), st.s);
   } else {
     scope = null;
-    setRepeat("all"); // the outer border plays everything
+    setLoop("all"); // the outer border plays everything
     playFrom(0, 0);
   }
 });
@@ -607,8 +607,8 @@ $("playpause").addEventListener("click", () => {
   const end = view.cum[view.moves.length];
   playFrom(lastTs >= end - 5 ? 0 : lastTs);
 });
-$("repeat").addEventListener("input", () => {
-  setRepeat(REPEATS[+$("repeat").value]);
+$("loop").addEventListener("input", () => {
+  setLoop(LOOPS[+$("loop").value]);
   updateWindow();
   if (view) markActive(indexAt(lastTs));
 });
