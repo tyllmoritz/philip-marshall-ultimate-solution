@@ -210,6 +210,7 @@ export function initSmartCube(api) {
   }
 
   let planning = 0;
+  let advanceTimer = null;
 
   /**
    * Decide where the real cube is - on the way to the scramble ("step 0"), on the solution, or neither - and show
@@ -309,6 +310,18 @@ export function initSmartCube(api) {
           info = { ...base, groups: [{ kind: "fix", moves: lead }, ...api.unitGroups(algIndex, resume)] };
         }
       }
+    }
+    // an algorithm that is done shows "done" for a second and the next one follows by itself
+    clearTimeout(advanceTimer);
+    advanceTimer = null;
+    if (info.done && info.action !== "scramble") {
+      advanceTimer = setTimeout(() => {
+        advanceTimer = null;
+        if (!puzzle || !plan) return;
+        const u = unit();
+        const stillDone = stage === 1 ? !!u && samePieces(pattern, plan.at(u.e)) : samePieces(pattern, plan.at(0));
+        if (stillDone) nextAlgorithm();
+      }, 1000);
     }
     if (stage === 1 || (stage === 0 && atScramble)) offPath = stage === 1 ? offPath : false;
     if (!offPath) { recorded = []; recordedCube = []; }
@@ -513,9 +526,7 @@ export function initSmartCube(api) {
     status("Cube reset to solved.");
   });
   $("algo-moves").addEventListener("click", (e) => {
-    if (!e.currentTarget.classList.contains("done")) return;
     if (e.currentTarget.dataset.action === "scramble") api.newScramble(); // solved: round and round
-    else nextAlgorithm();
   });
 
   if (!navigator.bluetooth) {

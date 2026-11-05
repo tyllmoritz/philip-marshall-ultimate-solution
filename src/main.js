@@ -687,9 +687,9 @@ const smart = initSmartCube({
     $("algo-title").textContent = info.title;
     $("algo-sub").textContent = info.sub ?? "";
     const m = $("algo-moves");
-    m.classList.toggle("done", !!info.done);
+    m.classList.toggle("done", !!info.done && info.action === "scramble"); // (only "new scramble" is a button)
     m.dataset.action = info.action ?? "";
-    if (info.done) m.textContent = info.action === "scramble" ? "new scramble" : "done: next algorithm";
+    if (info.done) m.textContent = info.action === "scramble" ? "new scramble" : "done";
     else {
       const n = renderLine(info.groups ?? [{ kind: "turns", moves: (info.moves ?? "").split(" ").filter(Boolean) }]);
       if (!n) m.textContent = "";

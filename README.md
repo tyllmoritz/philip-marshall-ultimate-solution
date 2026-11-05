@@ -118,7 +118,7 @@ Facelets snapshots *from the cube* are trusted; states the driver merely added u
 
 Web Bluetooth needs Chrome or Edge. Once connected there are two cubes: *Your cube* mirrors the real cube, and the solution cube loops what is left of the
 current algorithm (one series with its setup, not the whole step). *use current scramble* turns the cube's state into a scramble (via cubing's solver) and solves it;
-*done: next algorithm* goes on once the real cube shows the state the algorithm leads to. Solution rotations (`x2`, `y`, ...) are not moves for a smart cube
+the next algorithm follows a second after the real cube shows the state the algorithm leads to ("done" in between). Solution rotations (`x2`, `y`, ...) are not moves for a smart cube
 (its centres never move), so the solution is translated into the cube's own frame before it is compared.
 
 ### Orientation sync and reliability
@@ -162,7 +162,7 @@ In 20 random solves 18 end games were a single Niklas, 2 needed two; average sol
 With a smart cube connected the algorithm window starts with **0. Scramble**: the moves that take the cube from where it is to the scramble
 (cubing's solver finds them from the cube's state; moves already made drop out of the list). When the cube is neither on that path nor on the solution,
 the moves it was given are listed under the target moves ("You did: ...") and **use current scramble** appears in the top right corner - it takes the cube's present state
-as the scramble. When an algorithm is finished the line reads **done: next algorithm** and is the button for going on. Without a smart cube the move that is
+as the scramble. When an algorithm is finished the line reads **done** and the next algorithm follows a second later by itself (only **new scramble** after the last one is a button). Without a smart cube the move that is
 being played is highlighted in the algorithm line as well.
 
 ## Step 3 is split
