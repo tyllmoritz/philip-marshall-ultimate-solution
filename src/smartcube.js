@@ -239,7 +239,7 @@ export function initSmartCube(api) {
     if (stage === 0) {
       if (atScramble && scrPath) {
         info = { title: "0. Scramble", sub: "from your cube to the scramble", done: true };
-        range = { from: 0, to: 0 };
+        custom = { setup: [scrPath.start, ...scrPath.moves, ...leadFrame().lead].join(" "), moves: [] }; // nothing left to play, and no solution step lights up
       } else if (atScramble) {
         stage = 1; // the cube is at the scramble already
       } else {

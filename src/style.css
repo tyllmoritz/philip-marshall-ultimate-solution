@@ -83,10 +83,21 @@ code { font: 14px ui-monospace, monospace; overflow-wrap: anywhere; }
 .unit.hot .chip { box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 40%, var(--line)); border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
 .unit.active .chip { box-shadow: 0 0 0 1px var(--accent); border-color: var(--accent); }
 .controls { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: center; margin-top: 10px; }
-.controls button { min-width: 44px; padding: 6px 10px; }
+.controls button { width: 40px; height: 40px; min-width: 0; padding: 0; display: inline-grid; place-items: center; border-radius: 50%; }
+.controls button .ico { width: 20px; height: 20px; }
+.controls button#playpause { width: 46px; height: 46px; background: var(--accent); border-color: var(--accent); color: #fff; }
+.controls button#playpause .ico { width: 24px; height: 24px; }
+.controls button#playpause:hover:not(:disabled) { filter: brightness(1.1); border-color: var(--accent); }
+.controls button#playpause:disabled { background: var(--line); border-color: var(--line); color: var(--muted); opacity: 1; }
+@media (prefers-color-scheme: dark) { .controls button#playpause { color: #0b1d2e; } .controls button#playpause:disabled { color: var(--muted); } }
 #next-series { transform: none; }
-.controls .repeat { min-width: 64px; }
-.controls .repeat.off { opacity: .5; }
+.repeat-slider { display: flex; align-items: center; gap: 8px; flex: 1 1 260px; max-width: 360px; }
+.repeat-label { font-size: .85rem; color: var(--muted); white-space: nowrap; }
+.slider-box { flex: 1; min-width: 0; }
+.slider-box input { width: 100%; margin: 0; accent-color: var(--accent); }
+.slider-box input[data-mode="off"] { opacity: .6; }
+.slider-ticks { display: flex; justify-content: space-between; font-size: .72rem; color: var(--muted); margin-top: 1px; padding-inline: 8px; } /* the thumb's centre runs 8px inside the track */
+.slider-ticks span { width: 0; display: flex; justify-content: center; overflow: visible; white-space: nowrap; }
 a.btn { font: inherit; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); text-decoration: none; }
 .ext { vertical-align: -1px; margin-left: 2px; }
 a.btn:hover { border-color: var(--accent); }

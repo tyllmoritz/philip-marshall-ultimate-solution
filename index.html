@@ -54,12 +54,18 @@
       </div>
       <input id="progress" class="progress" type="range" min="0" max="1000" step="1" value="0" aria-label="Progress" disabled />
       <div id="controls" class="controls" role="group" aria-label="Playback">
-        <button id="prev-step" type="button" title="Previous step" disabled>⏮</button>
-        <button id="prev-series" type="button" title="Previous series" disabled>◀</button>
-        <button id="playpause" type="button" class="primary" title="Play" disabled>▶</button>
-        <button id="next-series" type="button" title="Next series" disabled>▶︎</button>
-        <button id="next-step" type="button" title="Next step" disabled>⏭</button>
-        <button id="repeat" type="button" class="repeat off" title="Repeat: off (click to cycle)" disabled>↻ repeat</button>
+        <button id="prev-step" type="button" title="Previous step" disabled><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 5v14" fill="none"/><path d="M19 5.5v13L9.5 12z" stroke="none"/></svg></button>
+        <button id="prev-series" type="button" title="Previous series" disabled><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6" fill="none"/></svg></button>
+        <button id="playpause" type="button" class="primary" title="Play" disabled><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 5v14l11-7z" stroke="none"/></svg></button>
+        <button id="next-series" type="button" title="Next series" disabled><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" fill="none"/></svg></button>
+        <button id="next-step" type="button" title="Next step" disabled><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 5v14" fill="none"/><path d="M5 5.5v13L14.5 12z" stroke="none"/></svg></button>
+        <div class="repeat-slider">
+          <span class="repeat-label" aria-hidden="true">↻ repeat</span>
+          <div class="slider-box">
+            <input id="repeat" type="range" min="0" max="6" step="1" value="0" data-mode="off" aria-label="Repeat: nothing, 1, 2 or 3 moves, the algorithm, the step or everything" title="Repeat: 0 = off, 1-3 = that many moves (on a cube without Bluetooth), algo, step, all" disabled />
+            <div class="slider-ticks" aria-hidden="true"><span>0</span><span>1</span><span>2</span><span>3</span><span>algo</span><span>step</span><span>all</span></div>
+          </div>
+        </div>
         <a id="twizzle" class="btn disabled" href="https://alpha.twizzle.net/edit/" target="_blank" rel="noopener" title="Open in Twizzle, with comments explaining every move">Twizzle <svg class="ext" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12.5 9v4a1.5 1.5 0 0 1-1.5 1.5H3A1.5 1.5 0 0 1 1.5 13V5A1.5 1.5 0 0 1 3 3.5h4"/><path d="M10 1.5h4.5V6M14.5 1.5 7.5 8.5"/></svg></a>
       </div>
     </section>

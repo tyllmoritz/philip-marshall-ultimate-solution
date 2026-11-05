@@ -111,7 +111,7 @@ let win = null; // {a, b} in ms: what the current playback loops over or stops a
 let dragging = false;
 let pin = null; // {ms, g}: a jump target; at exactly this time the move g is the current one (not the one that just ended)
 const HOLD = 1000; // one rotation of pause before and after jumps
-const REPEATS = ["off", "all", "step", "algo"];
+const REPEATS = ["off", "1", "2", "3", "algo", "step", "all"]; // the slider stops, left to right
 
 // whole-turn animation lengths used by cubing.js, to turn a move index into a timestamp
 const moveMs = (m) => (m.endsWith("2") ? 1500 : 1000);
@@ -121,9 +121,7 @@ const repeatMode = () => $("repeat").dataset.mode;
 function setRepeat(mode) {
   const b = $("repeat");
   b.dataset.mode = mode;
-  b.textContent = "↻ " + (mode === "off" ? "repeat" : mode);
-  b.classList.toggle("off", mode === "off");
-  b.title = { off: "Repeat: off (click to cycle)", all: "Repeat the whole solution", step: "Repeat the current step", algo: "Repeat the current series" }[mode];
+  b.value = String(REPEATS.indexOf(mode));
 }
 setRepeat("off");
 
@@ -199,7 +197,9 @@ function showInfo(g) {
 
 function updatePlayButton() {
   const on = isPlaying || holding;
-  $("playpause").textContent = on ? "⏸" : "▶";
+  $("playpause").querySelector(".ico").innerHTML = on
+    ? '<rect x="6.5" y="5" width="4" height="14" rx="1" stroke="none"/><rect x="13.5" y="5" width="4" height="14" rx="1" stroke="none"/>'
+    : '<path d="M8 5v14l11-7z" stroke="none"/>';
   $("playpause").title = on ? "Pause" : "Play";
 }
 
@@ -226,7 +226,13 @@ function onTime(ts) {
   if (!dragging) $("progress").value = ts;
   clearHighlight();
   const g = pin && Math.abs(ts - pin.ms) < 1 ? pin.g : indexAt(ts);
-  if (ts > 0) {
+  if (ts > 0 && (view.custom || infoLocked)) {
+    // the line above the cubes: the move being played (algorithm shown by a smart cube, step 0, ...)
+    const k = g - view.from;
+    [...$("algo-moves").children].forEach((x, i) => x.classList.toggle("now", i === k));
+  }
+  if (ts > 0 && !view.custom) {
+    // the solution list lights up only while the solution itself is playing (not during step 0)
     lit = g;
     document.querySelector(`.mv[data-i="${g}"]`)?.classList.add("now");
   }
@@ -326,7 +332,13 @@ function updateWindow(g = indexAt(lastTs)) {
   let range = { s: view.from, e: view.to };
   if (mode === "algo") range = layout.units.find((x) => g >= x.s && g < x.e) ?? range;
   else if (mode === "step") range = layout.steps.find((x) => g >= x.s && g < x.e) ?? range;
-  else if (mode === "off" && scope) range = scope;
+  else if (/^\d$/.test(mode) && +mode > 0) {
+    // that many moves, counted from the current one (rotations come along for free)
+    let e = Math.min(Math.max(g, view.from), view.to), n = 0;
+    while (e < view.to && n < +mode) { if (!/^[xyz]/.test(view.moves[e - view.from])) n++; e++; }
+    while (e < view.to && /^[xyz]/.test(view.moves[e - view.from])) e++;
+    range = { s: Math.max(g, view.from), e };
+  } else if (mode === "off" && scope) range = scope;
   win = { a: msOf(range.s), b: msOf(range.e) };
 }
 
@@ -443,7 +455,7 @@ function annotate(steps, from, to) {
 
 
 function setControls(on) {
-  document.querySelectorAll("#controls button, #progress").forEach((e) => { e.disabled = !on; });
+  document.querySelectorAll("#controls button, #controls input, #progress").forEach((e) => { e.disabled = !on; });
   if (!on) $("twizzle").classList.add("disabled");
 }
 
@@ -560,8 +572,8 @@ $("playpause").addEventListener("click", () => {
   const end = view.cum[view.moves.length];
   playFrom(lastTs >= end - 5 ? 0 : lastTs);
 });
-$("repeat").addEventListener("click", () => {
-  setRepeat(REPEATS[(REPEATS.indexOf(repeatMode()) + 1) % REPEATS.length]);
+$("repeat").addEventListener("input", () => {
+  setRepeat(REPEATS[+$("repeat").value]);
   updateWindow();
   if (view) markActive(indexAt(lastTs));
 });

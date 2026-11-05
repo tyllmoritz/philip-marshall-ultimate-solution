@@ -193,3 +193,8 @@ window says "Solved" with a clickable **new scramble**, which generates a scramb
 
 With *Yellow on top from the start* the solution begins with `x2`; step 0 is shown in that orientation too, on both cubes (the scramble moves are written for yellow on top), so
 the cubes agree from the moment they connect and no rotation is given twice when step 1 starts.
+
+## Repeat slider
+
+*Repeat* is a slider: `0` (off), `1`, `2`, `3` (that many moves, counted from the current one - meant for a cube without Bluetooth), `algo` (the current series), `step` and `all`.
+The line above the cubes highlights the move being played, also for step 0 and for the lists a smart cube shows; the solution list lights up only while the solution itself plays.
