@@ -174,3 +174,10 @@ Step 3 ("Top Edge Pieces") stops at Marshall's key position: one middle-layer ed
 (ideally a bare Hedgeslammer / Sledgehammer / sexy move) finishes them - that series is step 4, "Last Three Edge Pieces". The optional aligning `U`
 turn ends step 3. In a random sample 23 of 30 solves reached the key position; otherwise step 3 simply solves all the edges and step 4 is empty. Step 2 is named
 "3 Center Section Edge Pieces" or, with partial F2L, "3 F2L Pairs".
+
+## Credits
+
+[cubing.js](https://js.cubing.net/cubing/) (player, alg parser, scrambler, Bluetooth for first-generation smart cubes), [gan-web-bluetooth](https://github.com/afedotov/gan-web-bluetooth)
+(GAN Gen2-4 protocol), Trangium's [movecount coefficient](https://github.com/trangium/trangium.github.io/tree/master/MovecountCoefficient), rubiksplace.com's F2L algorithms, and
+ideas from Pau Oliva's [smartcube-web-bluetooth](https://github.com/poliva/smartcube-web-bluetooth) (a multi-brand successor of gan-web-bluetooth) and
+[Cubedex](https://github.com/poliva/cubedex) (an algorithm trainer built on them).
