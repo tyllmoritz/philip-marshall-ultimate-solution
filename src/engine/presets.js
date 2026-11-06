@@ -22,6 +22,9 @@ export const STEP_LIBRARY = [
   { id: "zz-eoline", group: "ZZ", label: "EOLine", hint: "orient every edge and place DF and DB" },
   { id: "zz-block-left", group: "ZZ", label: "Left block (2x2x3)", hint: "with R, U and L only" },
   { id: "zz-block-right", group: "ZZ", label: "Right block (2x2x3)", hint: "with R, U and L only" },
+  { id: "zz-ocll", group: "ZZ", label: "OCLL", hint: "orient the last layer corners (7 algorithms)" },
+  { id: "zz-cpll", group: "ZZ", label: "Corner permutation (CP)", hint: "permute the last layer corners (2 algorithms)" },
+  { id: "zz-epll", group: "ZZ", label: "EPLL", hint: "permute the last layer edges (4 algorithms)" },
   { id: "zz-zbll", group: "ZZ", label: "ZBLL", hint: "the last layer in one algorithm from the ZBLL set" },
   { id: "zz-coll", group: "ZZ", label: "COLL", hint: "the last layer's corners from the COLL set (edges stay oriented)" },
   { id: "zz-ell", group: "ZZ", label: "ELL", hint: "the last layer's edges from the ELL set" },
@@ -46,6 +49,8 @@ export const BUILT_IN_PRESETS = [
   { id: "cfop", name: "CFOP", description: "cross, F2L, OLL, PLL (the algorithm sets can be changed under Methods & algorithms)", steps: ["cross-optimal", "cfop-f2l", "cfop-oll", "cfop-pll"], ...flags, yellowTop: true },
   { id: "zz", name: "ZZ (ZBLL)", description: "EOLine, two blocks with R U L, then ZBLL for the whole last layer", steps: ["zz-eoline", "zz-block-left", "zz-block-right", "zz-zbll"], ...flags, yellowTop: true },
   { id: "zz-coll", name: "ZZ (COLL + ELL)", description: "EOLine, two blocks, COLL for the corners and ELL for the edges", steps: ["zz-eoline", "zz-block-left", "zz-block-right", "zz-coll", "zz-ell"], ...flags, yellowTop: true },
+  { id: "zz-3look", name: "ZZ (OCLL, CP, EPLL)", description: "EOLine, two blocks, then the last layer in three looks: 13 algorithms in all", steps: ["zz-eoline", "zz-block-left", "zz-block-right", "zz-ocll", "zz-cpll", "zz-epll"], ...flags, yellowTop: true },
+  { id: "zz-ocll-pll", name: "ZZ (OCLL + PLL)", description: "EOLine, two blocks, OCLL, then a PLL", steps: ["zz-eoline", "zz-block-left", "zz-block-right", "zz-ocll", "cfop-pll"], ...flags, yellowTop: true },
   { id: "roux", name: "Roux", description: "two 1x2x3 blocks, CMLL, then the last six edges with M and U", steps: ["roux-fb", "roux-sb", "roux-cmll", "roux-lse"], ...flags, yellowTop: true },
   { id: "lbl-marshall", name: "Two layers, then Marshall", description: "beginner first two layers, Marshall's series for the last layer", steps: ["cross-daisy", "lbl-corners", "lbl-middle", "marshall-top", "marshall-last", "marshall-corners", "marshall-end"], ...flags, yellowTop: true },
 ];
@@ -53,8 +58,8 @@ export const BUILT_IN_PRESETS = [
 /** Steps a method can begin with (they do not need anything built before them). */
 export const START_STEPS = ["cross-optimal", "cross-daisy", "zz-eoline", "roux-fb"];
 /** The algorithm set kind a step needs. */
-export const STEP_ALGSET = { "cfop-f2l": "f2l", "cfop-oll": "oll", "cfop-pll": "pll", "zz-zbll": "zbll", "zz-coll": "coll", "zz-ell": "ell", "roux-cmll": "cmll" };
-export const ALGSET_KINDS = ["f2l", "oll", "pll", "zbll", "coll", "ell", "cmll"];
+export const STEP_ALGSET = { "cfop-f2l": "f2l", "cfop-oll": "oll", "cfop-pll": "pll", "zz-zbll": "zbll", "zz-ocll": "ocll", "zz-cpll": "cp", "zz-epll": "epll", "zz-coll": "coll", "zz-ell": "ell", "roux-cmll": "cmll" };
+export const ALGSET_KINDS = ["f2l", "oll", "pll", "zbll", "coll", "ell", "cmll", "ocll", "cp", "epll"];
 export const neededKinds = (steps, f2l = false) => [...new Set([...steps.map((id) => STEP_ALGSET[id]), ...(f2l && steps.includes("marshall-mid") ? ["f2l"] : [])].filter(Boolean))];
 
 export const stepLabel = (id) => STEP_LIBRARY.find((s) => s.id === id)?.label ?? id;
@@ -78,7 +83,7 @@ export function algsetCases(set, kind) {
   const out = [];
   for (const sheet of set?.sheets ?? []) {
     for (const c of sheet.cases ?? []) {
-      if (Array.isArray(c.algs) && c.algs.length) out.push({ label: `${kind.toUpperCase()} ${c.name ?? c.index}`, algs: c.algs.map(String) });
+      if (Array.isArray(c.algs) && c.algs.length) out.push({ label: c.name && String(c.name).toUpperCase().startsWith(kind.toUpperCase()) ? String(c.name) : `${kind.toUpperCase()} ${c.name ?? c.index}`, algs: c.algs.map(String) });
     }
   }
   return out;

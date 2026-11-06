@@ -51,8 +51,10 @@ export function initAlgsets({ onChange }) {
     for (const kind of ALGSET_KINDS) {
       const sel = document.getElementById("algset-" + kind);
       sel.replaceChildren();
-      for (const s of all()) sel.append(new Option(s.name + (s.bundled ? "" : " (imported)"), s.slug));
-      if (!all().some((s) => s.slug === choice[kind])) choice[kind] = all().find((s) => s.slug === kind)?.slug ?? all()[0]?.slug ?? "";
+      // the bundled sets of this kind, and everything imported
+      const options = all().filter((s) => !s.bundled || s.kind === kind || !s.kind);
+      for (const s of options) sel.append(new Option(s.name + (s.bundled ? "" : " (imported)"), s.slug));
+      if (!options.some((s) => s.slug === choice[kind])) choice[kind] = options.find((s) => s.slug === kind)?.slug ?? options[0]?.slug ?? "";
       sel.value = choice[kind];
     }
     const list = document.getElementById("algset-imported");

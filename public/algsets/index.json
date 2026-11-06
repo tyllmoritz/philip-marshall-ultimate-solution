@@ -47,5 +47,89 @@
   "file": "f2l.json",
   "kind": "f2l",
   "source": "Tao Yu's Alg Trainer"
+ },
+ {
+  "slug": "pll-cubedex",
+  "name": "PLL (Cubedex)",
+  "file": "pll-cubedex.json",
+  "kind": "pll",
+  "source": "Cubedex (Pau Oliva Fora, MIT)"
+ },
+ {
+  "slug": "pll-2look-cubedex",
+  "name": "2-look PLL (Cubedex)",
+  "file": "pll-2look-cubedex.json",
+  "kind": "pll",
+  "source": "Cubedex (Pau Oliva Fora, MIT)"
+ },
+ {
+  "slug": "oll-cubedex",
+  "name": "OLL (Cubedex)",
+  "file": "oll-cubedex.json",
+  "kind": "oll",
+  "source": "Cubedex (Pau Oliva Fora, MIT)"
+ },
+ {
+  "slug": "oll-2look-cubedex",
+  "name": "2-look OLL (Cubedex)",
+  "file": "oll-2look-cubedex.json",
+  "kind": "oll",
+  "source": "Cubedex (Pau Oliva Fora, MIT)"
+ },
+ {
+  "slug": "f2l-cubedex",
+  "name": "F2L (Cubedex)",
+  "file": "f2l-cubedex.json",
+  "kind": "f2l",
+  "source": "Cubedex (Pau Oliva Fora, MIT)"
+ },
+ {
+  "slug": "coll-cubedex",
+  "name": "COLL (Cubedex)",
+  "file": "coll-cubedex.json",
+  "kind": "coll",
+  "source": "Cubedex (Pau Oliva Fora, MIT)"
+ },
+ {
+  "slug": "cmll-cubedex",
+  "name": "CMLL (Cubedex)",
+  "file": "cmll-cubedex.json",
+  "kind": "cmll",
+  "source": "Cubedex (Pau Oliva Fora, MIT)"
+ },
+ {
+  "slug": "zbll-cubedex",
+  "name": "ZBLL (Cubedex)",
+  "file": "zbll-cubedex.json",
+  "kind": "zbll",
+  "source": "Cubedex (Pau Oliva Fora, MIT)"
+ },
+ {
+  "slug": "ocll",
+  "name": "OCLL (zz-method-docs)",
+  "file": "ocll.json",
+  "kind": "ocll",
+  "source": "zz-method-docs, cubingmethods branch (crystalcuber, MIT)"
+ },
+ {
+  "slug": "cp",
+  "name": "CP (zz-method-docs)",
+  "file": "cp.json",
+  "kind": "cp",
+  "source": "zz-method-docs, cubingmethods branch (crystalcuber, MIT)"
+ },
+ {
+  "slug": "epll",
+  "name": "EPLL (zz-method-docs)",
+  "file": "epll.json",
+  "kind": "epll",
+  "source": "zz-method-docs, cubingmethods branch (crystalcuber, MIT)"
+ },
+ {
+  "slug": "pll-zz-docs",
+  "name": "PLL (zz-method-docs)",
+  "file": "pll-zz-docs.json",
+  "kind": "pll",
+  "source": "zz-method-docs, cubingmethods branch (crystalcuber, MIT)"
  }
 ]

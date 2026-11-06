@@ -1,0 +1,1 @@
+{"name":"CP (zz-method-docs)","source":"zz-method-docs, cubingmethods branch (crystalcuber, MIT) - algs/CP.ts","sheets":[{"sheet":"CP (zz-method-docs)","cases":[{"index":1,"name":"Adjacent swap","algs":["R U R' U' R' F R2 U' R' U' R U R' F'"]},{"index":2,"name":"Diagonal swap","algs":["F R U' R' U' R U R' F' R U R' U' R' F R F'"]}]}]}

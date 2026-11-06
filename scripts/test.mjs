@@ -6,7 +6,7 @@ import { solvedMask, unsolvedOnOneSide } from "../src/engine/solver.js";
 import { BUILT_IN_PRESETS, algsetCases } from "../src/engine/presets.js";
 import fs from "node:fs";
 const bundled = (name) => JSON.parse(fs.readFileSync(new URL(`../public/algsets/${name}.json`, import.meta.url), "utf8"));
-const algsets = Object.fromEntries(["f2l", "oll", "pll", "zbll", "coll", "ell", "cmll"].map((k) => [k, algsetCases(bundled(k), k)]));
+const algsets = Object.fromEntries(["f2l", "oll", "pll", "zbll", "coll", "ell", "cmll", "ocll", "cp", "epll"].map((k) => [k, algsetCases(bundled(k), k)]));
 const kp = await cube3x3x3.kpuzzle();
 let t = performance.now();
 const solver = new MarshallSolver(kp);

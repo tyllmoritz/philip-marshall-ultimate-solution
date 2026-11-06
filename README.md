@@ -269,3 +269,12 @@ rotations that cancel (`x' ... x`) work; algorithms that would leave the cube tu
 The F2L step (CFOP's four pairs, and Marshall's three with the F2L option) now uses the bundled F2L set first: every algorithm of every case, for every slot (the cube is turned with `y`
 before it), with the top layer turned into place first. It replaced the built-in insertion list as the first choice: in 60 random scrambles the set alone always finished the four pairs, in about
 30 moves on average, where the built-in list got stuck on the last pair in about a third of the cases and the beginner steps that took over needed about 49 moves.
+
+### More algorithm sets (Cubedex, zz-method-docs)
+
+`node scripts/import-extra-algs.mjs <cubedex folder> <zz-method-docs algs folder>` converts two more collections into the same JSON (and adds them to `public/algsets/index.json`):
+**Cubedex** (Pau Oliva Fora, MIT; `src/data/defaultAlgs.json`) - PLL (21 cases), 2-look PLL, OLL (57), 2-look OLL, F2L (164 slot-specific cases), COLL, CMLL, ZBLL (472) - and
+**zz-method-docs** (crystalcuber, MIT; cubingmethods branch) - OCLL (7), CP (2), EPLL (4) and PLL (21). Every step has a drop-down in *Methods & algorithms* listing the sets of its kind,
+so e.g. the CFOP preset can use Cubedex's OLL and PLL instead of Tao Yu's. New steps and presets use the ZZ sets: **OCLL**, **Corner permutation** and **EPLL** (ZZ with OCLL, CP, EPLL: 13 algorithms,
+about 61 moves) and ZZ with OCLL followed by a PLL (about 50 moves). A few algorithms of a set may be skipped when they would leave the cube turned (4 of Cubedex's 21 PLL cases have only such
+algorithms; the others cover the rest).
