@@ -164,7 +164,13 @@ function shortInfo(part) {
       return `${name} · cycles three edges`;
     }
     case "corner": return `Niklas${part.moves[0] === "U" ? "" : " (inverse)"} · cycles three corners`;
-    case "f2l": return "F2L algorithm · inserts a corner-edge pair";
+    case "f2l": {
+      // the pair's edge, as the solver sees it (cube turned over): which physical edge that is, and so its two colours
+      const PAIR_COLOURS = { 8: "blue-red", 9: "blue-orange", 10: "green-red", 11: "green-orange" };
+      const colours = PAIR_COLOURS[part.pair];
+      if (!colours) return "F2L algorithm · inserts a corner-edge pair";
+      return part.frees ? `F2L algorithm · frees the ${colours} pair` : `F2L algorithm · inserts the ${colours} pair`;
+    }
     case "daisy": return "Daisy · white edges up around the yellow centre";
     case "insert": return "Half turn · drops a white edge into the cross";
     default: return "Turns · line up the pieces";

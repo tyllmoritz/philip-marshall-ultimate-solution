@@ -210,3 +210,6 @@ Only another move after that quarter turn counts as one (and then the quarter tu
 
 The *speed* slider (¼× to 4×, remembered in the browser) sets the playback tempo; the one-rotation pauses around jumps and loops scale with it.
 Moving the loop slider restarts the animation at the start of the new loop.
+
+With partial F2L the text above the cubes names the pair an algorithm works on by its two colours: "F2L algorithm · inserts the green-red pair" (or "frees the ... pair" for the turns
+that get a pair out of its slot first). Colours assume the usual scheme (white top, green front, red right).

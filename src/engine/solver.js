@@ -115,7 +115,7 @@ const KIND_RANK = { edge: 3, corner: 3, turns: 2, setup: 1, undo: 1 };
 export function optimizeSteps(steps) {
   const stack = [];
   steps.forEach((step, si) => step.parts.forEach((part) => part.moves.forEach((m) => {
-    const tok = { m, kind: part.kind, act: part.act, step: si };
+    const tok = { m, kind: part.kind, act: part.act, step: si, pair: part.pair, frees: part.frees };
     // series stay exactly as written (front/top) and rotations are barriers, so nothing cancels into them
     const solid = part.kind === "edge" || part.kind === "corner" || part.kind === "rotate";
     tok.solid = solid;
@@ -142,7 +142,7 @@ export function optimizeSteps(steps) {
       const last = parts[parts.length - 1];
       const sameGroup = last && last.kind === kind && (kind === "setup" || kind === "turns" || last.act === t.act);
       if (sameGroup) last.moves.push(t.m);
-      else parts.push({ kind, moves: [t.m], act: t.act });
+      else parts.push({ kind, moves: [t.m], act: t.act, ...(t.pair !== undefined ? { pair: t.pair, ...(t.frees ? { frees: true } : {}) } : {}) });
     }
     return { name: step.name, parts, count: parts.reduce((n, p) => n + (p.kind === "rotate" ? 0 : p.moves.length), 0) };
   });
@@ -981,7 +981,17 @@ export class MarshallSolver {
     const rp = this.climb(state, table, { target: { edges: [], corners: [] }, goal: 6, count: pairCount, first, pick });
     const corners = MIDDLE.filter((e) => rp.state[e] === e && rp.state[12 + e] === 0).map((e) => PAIR_CORNER[e])
       .filter((c) => rp.state[24 + c] === c && rp.state[32 + c] === 0);
-    return { name: "3 F2L Pairs", parts: this.actionsToParts(rp.actions, "f2l"), state: rp.state, corners, pairs: 3 };
+    // which pair does each algorithm insert (or, for the turns before it, free)? - for the text above the cubes
+    const solvedPairs = (f) => MIDDLE.filter((e) => f[e] === e && f[12 + e] === 0 && f[24 + PAIR_CORNER[e]] === PAIR_CORNER[e] && f[32 + PAIR_CORNER[e]] === 0);
+    let st = state;
+    const tagged = rp.actions.map((a) => {
+      const before = solvedPairs(st);
+      st = compose(st, a.flat);
+      const added = solvedPairs(st).find((e) => !before.includes(e));
+      return { ...a, pairEdge: added };
+    });
+    for (let i = tagged.length - 2; i >= 0; i--) if (tagged[i].pairEdge === undefined && tagged[i + 1].pairEdge !== undefined) tagged[i].pairFor = tagged[i + 1].pairEdge;
+    return { name: "3 F2L Pairs", parts: this.actionsToParts(tagged, "f2l"), state: rp.state, corners, pairs: 3 };
   }
 
   /** Of the equally cheap spellings of an action, the one with the lowest movecount coefficient. */
@@ -1023,7 +1033,7 @@ export class MarshallSolver {
         parts.push({ kind: "rotate", moves: word, act });
       }
       if (setup.length) parts.push({ kind: "setup", moves: setup, act });
-      parts.push({ kind, moves: a.canon ?? a.series, act });
+      parts.push({ kind, moves: a.canon ?? a.series, act, ...(a.pairEdge !== undefined ? { pair: a.pairEdge } : a.pairFor !== undefined ? { pair: a.pairFor, frees: true } : {}) });
       if (setup.length) parts.push({ kind: "undo", moves: invertAlg(setup), act });
       if (word.length) parts.push({ kind: "rotate", moves: invertRotationWord(word), act });
     }
