@@ -778,3 +778,22 @@ if (!current) {
 
 // a click anywhere that is not a move drops the selection
 document.addEventListener("click", (e) => { if (!e.target.closest?.(".mv")) clearHighlight(); });
+
+// ---- installable, works offline (PWA) ----
+if ("serviceWorker" in navigator && import.meta.env.PROD) {
+  navigator.serviceWorker.register("./sw.js").catch(() => {});
+}
+let installPrompt = null;
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  installPrompt = e;
+  $("install").hidden = false;
+});
+window.addEventListener("appinstalled", () => { installPrompt = null; $("install").hidden = true; });
+$("install").addEventListener("click", async () => {
+  if (!installPrompt) return;
+  installPrompt.prompt();
+  await installPrompt.userChoice;
+  installPrompt = null;
+  $("install").hidden = true;
+});

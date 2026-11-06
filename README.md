@@ -232,3 +232,9 @@ Both are remembered in the browser and re-solve on change.
 
 Rotations before the first move of the solution (the `x2` of "Yellow on top from the start") are part of the setup - how the cube is held to begin with - and the player's setup alg and the Twizzle link include them.
 Rotations after the last move are dropped: a solved cube can be put down any way up (the result still carries the rotation that would undo them, which the tests use).
+
+## Install and offline (PWA)
+
+The page has a web app manifest and icons, so browsers offer *Install as an app* (there is a link under the title when the browser allows it), and a service worker
+(`sw.js`, written by `vite.config.js` at build time) that precaches every file of the build and serves from the cache first - after the first visit the solver, the cubes and the
+scrambler work without a network (Bluetooth needs none). A new build gets a new cache name, so updates arrive on the next load. Icons: `public/icons/icon.svg` (source) and PNGs rendered from it.
