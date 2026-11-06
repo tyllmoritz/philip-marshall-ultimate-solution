@@ -11,8 +11,8 @@
     "profile": "node scripts/profile.mjs 40"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "Robin Bertram",
+  "license": "MIT",
   "dependencies": {
     "cubing": "^0.53.3",
     "smartcube-web-bluetooth": "github:poliva/smartcube-web-bluetooth#2077416d6c828ec926dee424cf1bbfe4c0f25a47"
