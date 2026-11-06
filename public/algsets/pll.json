@@ -1,0 +1,195 @@
+{
+ "name": "PLL",
+ "source": "PLL.xlsx",
+ "sheets": [
+  {
+   "sheet": "PLL",
+   "cases": [
+    {
+     "index": 1,
+     "name": "Ua",
+     "algs": [
+      "U2 R2 U' R' U' R U R U R U' R",
+      "R U' R U R U R U' R' U' R2",
+      "M2 U M U2 M' U M2",
+      "U2 M2 U M' U2 M U M2",
+      "U2 R U R' U R' U' R2 U' R' U R' U R",
+      "U' R2 U' S' U2 S U' R2"
+     ]
+    },
+    {
+     "index": 2,
+     "name": "Ub",
+     "algs": [
+      "R' U R' U' R' U' R' U R U R2",
+      "U2 M2 U' M U2 M' U' M2",
+      "M2 U' M' U2 M U' M2"
+     ]
+    },
+    {
+     "index": 3,
+     "name": "H",
+     "algs": [
+      "M2 U' M2 U2 M2 U' M2",
+      "M2 U M2 U2 M2 U M2"
+     ]
+    },
+    {
+     "index": 4,
+     "name": "Z",
+     "algs": [
+      "M' U' M2 U' M2 U' M' U2 M2",
+      "U M' U M2 U M2 U M' U2 M2",
+      "U M2 U' M2 U' M' U2 M2 U2 M'",
+      "M2 U M2 U M' U2 M2 U2 M'"
+     ]
+    },
+    {
+     "index": 5,
+     "name": "Aa",
+     "algs": [
+      "l' U R' D2 R U' R' D2 R2 x'",
+      "U x' R2 D2 R' U' R D2 R' U R' x"
+     ]
+    },
+    {
+     "index": 6,
+     "name": "Ab",
+     "algs": [
+      "x R2 D2 R U R' D2 R U' R x'",
+      "U x' R U' R D2 R' U R D2 R2 x"
+     ]
+    },
+    {
+     "index": 7,
+     "name": "E",
+     "algs": [
+      "x' R U' R' D R U R' D' R U R' D R U' R' D' x"
+     ]
+    },
+    {
+     "index": 8,
+     "name": "Ga",
+     "algs": [
+      "R2 u R' U R' U' R u' R2 y' R' U R",
+      "R2 U R' U R' U' R U' R2 D U' R' U R D'"
+     ]
+    },
+    {
+     "index": 9,
+     "name": "Gb",
+     "algs": [
+      "U F' U' F R2 u R' U R U' R u' R2",
+      "R' U' R y R2 u R' U R U' R u' R2",
+      "R' U' R U D' R2 U R' U R U' R U' R2 D"
+     ]
+    },
+    {
+     "index": 10,
+     "name": "Gc",
+     "algs": [
+      "R2 u' R U' R U R' u R2 y R U' R'",
+      "R2 u' R U' R U R' D x' U2 r U' r'",
+      "U2 R2 F2 R U2 R U2 R' F R U R' U' R' F R2",
+      "R2 U' R U' R U R' U R2 D' U R U' R' D"
+     ]
+    },
+    {
+     "index": 11,
+     "name": "Gd",
+     "algs": [
+      "R U R' y' R2 u' R U' R' U R' u R2",
+      "R U R' U' D R2 U' R U' R' U R' U R2 D'"
+     ]
+    },
+    {
+     "index": 12,
+     "name": "Ra",
+     "algs": [
+      "R U R' F' R U2 R' U2 R' F R U R U2 R'",
+      "R U' R' U' R U R D R' U' R D' R' U2 R'",
+      "U' L U2 L' U2 L F' L' U' L U L F L2"
+     ]
+    },
+    {
+     "index": 13,
+     "name": "Rb",
+     "algs": [
+      "R' U2 R U2 R' F R U R' U' R' F' R2",
+      "R' U2 R' D' R U' R' D R U R U' R' U' R"
+     ]
+    },
+    {
+     "index": 14,
+     "name": "Ja",
+     "algs": [
+      "R' U L' U2 R U' R' U2 R L",
+      "U2 L' U R' z R2 U R' U' R2 U D",
+      "U x R2 F R F' R U2 r' U r U2 x'",
+      "U' L' U' L F L' U' L U L F' L2 U L"
+     ]
+    },
+    {
+     "index": 15,
+     "name": "Jb",
+     "algs": [
+      "R U R' F' R U R' U' R' F R2 U' R' U'"
+     ]
+    },
+    {
+     "index": 16,
+     "name": "Na",
+     "algs": [
+      "R U R' U R U R' F' R U R' U' R' F R2 U' R' U2 R U' R'",
+      "z D R' U R2 D' R U' D R' U R2 D' R U' z'",
+      "z U R' D R2 U' R D' U R' D R2 U' R D' z'"
+     ]
+    },
+    {
+     "index": 17,
+     "name": "Nb",
+     "algs": [
+      "z D' R U' R2 D R' U D' R U' R2 D R' U z'",
+      "R' U R U' R' F' U' F R U R' F R' F' R U' R",
+      "R' U R U' R' F' U' F R U R' U' R U' f R f'",
+      "z U' R D' R2 U R' D U' R D' R2 U R' D z'"
+     ]
+    },
+    {
+     "index": 18,
+     "name": "Y",
+     "algs": [
+      "F R U' R' U' R U R' F' R U R' U' R' F R F'",
+      "F R' F R2 U' R' U' R U R' F' R U R' U' F'"
+     ]
+    },
+    {
+     "index": 19,
+     "name": "F",
+     "algs": [
+      "R' U' F' R U R' U' R' F R2 U' R' U' R U R' U R",
+      "U R' U2 R' d' R' F' R2 U' R' U R' F R U' F"
+     ]
+    },
+    {
+     "index": 20,
+     "name": "T",
+     "algs": [
+      "R U R' U' R' F R2 U' R' U' R U R' F'"
+     ]
+    },
+    {
+     "index": 21,
+     "name": "V",
+     "algs": [
+      "R' U R' d' R' F' R2 U' R' U R' F R F",
+      "z D' R2 D R2 U R' D' R U' R U R' D R U' z'",
+      "U2 L' U L' U' y' R' F' R2 U' R' U R' F R F",
+      "R' U R U' x' U R U2 R' U' R U' R' U2 R U R' U' x",
+      "R' U R' U' R D' R' D R' U D' R2 U' R2 D R2"
+     ]
+    }
+   ]
+  }
+ ]
+}

@@ -3,6 +3,7 @@ import { randomScrambleForEvent } from "cubing/scramble";
 import { TwistyPlayer } from "cubing/twisty";
 import { initSmartCube } from "./smartcube.js";
 import { initMethods } from "./methods-ui.js";
+import { initAlgsets } from "./algsets.js";
 
 const $ = (id) => document.getElementById(id);
 const MOVE = /^[UDFBRL][2']?$/;
@@ -407,6 +408,7 @@ $("random").addEventListener("click", async () => {
 });
 
 const methods = initMethods({ onChange: () => solve() });
+const algsets = initAlgsets({ onChange: () => solve() });
 const options = () => methods.options();
 
 /** Solve whatever the scramble field and options say now; any calculation still running is aborted. */
@@ -431,7 +433,14 @@ function solve() {
   $("result").classList.add("stale");
   show(scramble, []);
   current = { scramble, result: null };
-  dispatch({ id: nextId, scramble, ...options() });
+  const opts = options();
+  const request = { id: nextId, scramble, ...opts };
+  if (opts.steps.some((id) => id === "cfop-oll" || id === "cfop-pll")) {
+    // the OLL / PLL sets travel with the request
+    const mine = nextId;
+    algsets.payload().then((sets) => { if (mine === nextId) dispatch({ ...request, algsets: sets }); })
+      .catch((err) => { if (mine === nextId) setStatus("Could not load the algorithm sets: " + err.message, true); });
+  } else dispatch(request);
 }
 
 let typing = null;

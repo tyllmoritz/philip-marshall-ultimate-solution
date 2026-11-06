@@ -69,22 +69,31 @@ const MOVE = /^(?:[UDFBRLudfbrlMESxyz](?:2'|2|')?|\(|\)|[0-9]+)$/;
 const looksLikeAlg = (text) => text.split(/\s+/).filter(Boolean).every((t) => MOVE.test(t));
 const normalize = (alg) => alg.replace(/[’‘`]/g, "'").replace(/[()]/g, " ").replace(/\s+/g, " ").trim();
 
-/** Cells -> cases. A text cell without moves names the case below it ("Ua" over its algorithms); a cell with moves is a case. */
+/**
+ * Cells -> cases. A text cell without moves names the case below it ("Ua" over its algorithms); a cell with moves is a case.
+ * A single token like "E" is both a slice move and a PLL name: it is a name when its row holds other, unmistakable names.
+ */
 function sheetCases(rows) {
+  const isAlgCell = (text) => {
+    const lines = text.split(/\n+/).map((l) => l.trim()).filter(Boolean);
+    return lines.length > 0 && lines.every(looksLikeAlg);
+  };
   const cases = [];
-  const byColumn = {};
-  for (const { cells } of rows) {
+  const nameOf = {}; // column -> the latest name above
+  for (const { row, cells } of rows) {
+    const rowHasNames = Object.values(cells).some((t) => !isAlgCell(t));
     for (const [col, text] of Object.entries(cells)) {
-      const lines = text.split(/\n+/).map((l) => l.trim()).filter(Boolean);
-      if (lines.length && lines.every(looksLikeAlg)) {
-        cases.push({ name: byColumn[col] ?? null, algs: lines.map(normalize).filter(Boolean) });
-        byColumn[col] = undefined;
+      const single = !/\s/.test(text.trim());
+      if (isAlgCell(text) && !(single && rowHasNames)) {
+        const lines = text.split(/\n+/).map((l) => l.trim()).filter(Boolean);
+        cases.push({ row, col, name: nameOf[col] ?? null, algs: lines.map(normalize).filter(Boolean) });
+        nameOf[col] = undefined;
       } else {
-        byColumn[col] = text.replace(/\s+/g, " ").trim();
+        nameOf[col] = text.replace(/\s+/g, " ").trim();
       }
     }
   }
-  return cases.map((c, i) => ({ index: i + 1, ...c }));
+  return cases.map(({ name, algs }, k) => ({ index: k + 1, name, algs }));
 }
 
 const [, , input, output = "data/algsets"] = process.argv;

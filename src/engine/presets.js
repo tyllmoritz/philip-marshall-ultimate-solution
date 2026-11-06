@@ -16,6 +16,9 @@ export const STEP_LIBRARY = [
   { id: "marshall-last", group: "Marshall", label: "Last three edge pieces", hint: "the one series from the key position" },
   { id: "marshall-corners", group: "Marshall", label: "Five corner pieces", hint: "Niklas until the last 2-3 corners share a side" },
   { id: "marshall-end", group: "Marshall", label: "The end game", hint: "one Niklas (or two)" },
+  { id: "cfop-f2l", group: "CFOP", label: "F2L (all four pairs)", hint: "corner-edge pairs by F2L algorithms" },
+  { id: "cfop-oll", group: "CFOP", label: "OLL", hint: "orient the last layer with the OLL algorithm set" },
+  { id: "cfop-pll", group: "CFOP", label: "PLL", hint: "permute the last layer with the PLL algorithm set" },
   { id: "edges-all", group: "Anything left", label: "All remaining edges (series)", hint: "edge series with setup, until all edges are home" },
   { id: "corners-all", group: "Anything left", label: "All remaining corners (Niklas)", hint: "Niklas with setup, until the cube is solved" },
 ];
@@ -30,6 +33,7 @@ export const BUILT_IN_PRESETS = [
   { id: "marshall-daisy", name: "Marshall, beginner cross", description: "daisy and half turns for the cross, then Marshall", steps: ["cross-daisy", ...MARSHALL_REST], ...flags, yellowTop: true },
   { id: "lbl", name: "Beginner: layer by layer", description: "white cross (daisy), first layer, second layer, yellow cross, yellow edges, yellow corners", steps: ["cross-daisy", ...LBL_STEPS], ...flags, yellowTop: true },
   { id: "lbl-short", name: "Layer by layer, shortest cross", description: "the beginner steps after the shortest white cross", steps: ["cross-optimal", ...LBL_STEPS], ...flags },
+  { id: "cfop", name: "CFOP", description: "cross, F2L, OLL, PLL (the algorithm sets can be changed under Methods & algorithms)", steps: ["cross-optimal", "cfop-f2l", "cfop-oll", "cfop-pll"], ...flags, yellowTop: true },
   { id: "lbl-marshall", name: "Two layers, then Marshall", description: "beginner first two layers, Marshall's series for the last layer", steps: ["cross-daisy", "lbl-corners", "lbl-middle", "marshall-top", "marshall-last", "marshall-corners", "marshall-end"], ...flags, yellowTop: true },
 ];
 
@@ -47,4 +51,15 @@ export function cleanPreset(p) {
     steps: steps.filter((id, i) => i === 0 || !id.startsWith("cross-")),
     yellowTop: !!p?.yellowTop, f2l: !!p?.f2l, openSlot: !!p?.openSlot, lastLayer: !!p?.lastLayer,
   };
+}
+
+/** The cases of an imported algorithm set as the solver wants them: [{ label, algs }]. */
+export function algsetCases(set, kind) {
+  const out = [];
+  for (const sheet of set?.sheets ?? []) {
+    for (const c of sheet.cases ?? []) {
+      if (Array.isArray(c.algs) && c.algs.length) out.push({ label: `${kind.toUpperCase()} ${c.name ?? c.index}`, algs: c.algs.map(String) });
+    }
+  }
+  return out;
 }

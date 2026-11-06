@@ -24,38 +24,49 @@
         <button id="random" type="button">Random scramble</button>
       </div>
       <textarea id="scramble" rows="3" spellcheck="false" placeholder="e.g. R U R' U' F2 D L2 B' …  (faces U D F B R L, with ' or 2)"></textarea>
-      <div class="method">
-        <div class="label-row">
-          <label for="preset">Method</label>
-          <span class="bt-buttons">
-            <button id="preset-save" type="button" title="Keep the method as you set it up, in this browser">Save as…</button>
-            <button id="preset-delete" type="button" hidden>Delete</button>
-          </span>
-        </div>
-        <select id="preset"></select>
-        <p id="preset-info" class="hint"></p>
-        <details class="steps-editor">
-          <summary>Steps (<span id="steps-count"></span>)</summary>
+      <details class="methods-box">
+        <summary>Methods &amp; algorithms <span id="method-name" class="hint"></span></summary>
+        <div class="method">
+          <div class="label-row">
+            <label for="preset">Method</label>
+            <span class="bt-buttons">
+              <button id="preset-save" type="button" title="Keep the method as you set it up, in this browser">Save as…</button>
+              <button id="preset-delete" type="button" hidden>Delete</button>
+            </span>
+          </div>
+          <select id="preset"></select>
+          <p id="preset-info" class="hint"></p>
+          <h3>Steps (<span id="steps-count"></span>)</h3>
           <ol id="steps-list" class="steps-list"></ol>
           <select id="step-add" aria-label="Add a step"></select>
-        </details>
-      </div>
-      <label class="check" for="yellow">
-        <input type="checkbox" id="yellow" />
-        Yellow on top from the start <span class="hint">(turn the cube over first, build the white cross on the bottom)</span>
-      </label>
-      <label class="check" for="f2l">
-        <input type="checkbox" id="f2l" />
-        F2L pairs in Marshall's second step <span class="hint">(cross + 3 corner–edge pairs, leaving 5 edges for step 3)</span>
-      </label>
-      <label class="check" for="openslot">
-        <input type="checkbox" id="openslot" />
-        Edge swaps at the open slot <span class="hint">(the missing pair's location, set up with U turns only - nothing else is turned)</span>
-      </label>
-      <label class="check" for="lastlayer">
-        <input type="checkbox" id="lastlayer" />
-        Last 3 corners on the last layer <span class="hint">(step 4 ends with the unsolved corners all in the top layer)</span>
-      </label>
+        </div>
+        <h3>Options</h3>
+        <label class="check" for="yellow">
+          <input type="checkbox" id="yellow" />
+          Yellow on top from the start <span class="hint">(turn the cube over first, build the white cross on the bottom)</span>
+        </label>
+        <label class="check" for="f2l">
+          <input type="checkbox" id="f2l" />
+          F2L pairs in Marshall's second step <span class="hint">(cross + 3 corner–edge pairs, leaving 5 edges for step 3)</span>
+        </label>
+        <label class="check" for="openslot">
+          <input type="checkbox" id="openslot" />
+          Edge swaps at the open slot <span class="hint">(the missing pair's location, set up with U turns only - nothing else is turned)</span>
+        </label>
+        <label class="check" for="lastlayer">
+          <input type="checkbox" id="lastlayer" />
+          Last 3 corners on the last layer <span class="hint">(step 4 ends with the unsolved corners all in the top layer)</span>
+        </label>
+        <h3>Algorithm sets <span class="hint">(for the OLL and PLL steps)</span></h3>
+        <div class="algsets">
+          <label for="algset-oll">OLL</label><select id="algset-oll"></select>
+          <label for="algset-pll">PLL</label><select id="algset-pll"></select>
+        </div>
+        <p class="hint">Bundled sets come from Tao Yu's Alg Trainer. Import more as .json files made with <code>scripts/import-algsets.mjs</code>.</p>
+        <label class="file-button">Import a set… <input id="algset-file" type="file" accept=".json,application/json" multiple hidden /></label>
+        <ul id="algset-imported" class="algset-imported"></ul>
+        <p id="algset-status" class="hint"></p>
+      </details>
       <div class="row">
         <span id="status" role="status">Preparing solver…</span>
       </div>

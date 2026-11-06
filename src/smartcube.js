@@ -28,13 +28,33 @@ function samePieces(a, b) {
  * The solution as the cube itself sees it: whole-cube rotations are not moves of a smart cube
  * (its centres never move), they only change which cube face a following turn lands on.
  */
+const flipSuffix = (rest) => (rest === "" ? "'" : rest === "'" ? "" : rest);
+
+/** A move of the shown orientation as the cube itself would call it: faces, wide moves (r, u, ...) and slices (M, E, S). */
+function cubeMove(frame, m) {
+  const c = m[0], rest = m.slice(1);
+  if ("UDFBRL".includes(c)) return frame[c] + rest;
+  if ("udfbrl".includes(c)) return frame[c.toUpperCase()].toLowerCase() + rest;
+  if ("MES".includes(c)) {
+    // a slice follows a face (M the L face, E the D face, S the F face): the same slice in the cube's own frame
+    const face = frame[{ M: "L", E: "D", S: "F" }[c]];
+    const slice = { L: "M", R: "M", D: "E", U: "E", F: "S", B: "S" }[face];
+    return slice + (face === { M: "L", E: "D", S: "F" }[slice] ? rest : flipSuffix(rest));
+  }
+  return m;
+}
+
+/**
+ * The solution as the cube itself sees it: whole-cube rotations are not moves of a smart cube
+ * (its centres never move), they only change which cube face a following turn lands on.
+ */
 export function cubeFrameMoves(solution, setupRotation = []) {
   const rotations = [...setupRotation];
   const out = [];
   for (const m of solution) {
     if (isRotation(m)) { rotations.push(m); continue; }
     const frame = rotations.length ? rotationOf(rotations) : null;
-    out.push(frame ? frame[m[0]] + m.slice(1) : m);
+    out.push(frame ? cubeMove(frame, m) : m);
   }
   return out;
 }

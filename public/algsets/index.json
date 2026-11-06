@@ -1,0 +1,14 @@
+[
+ {
+  "slug": "oll",
+  "name": "OLL",
+  "file": "oll.json",
+  "source": "Tao Yu's Alg Trainer"
+ },
+ {
+  "slug": "pll",
+  "name": "PLL",
+  "file": "pll.json",
+  "source": "Tao Yu's Alg Trainer"
+ }
+]

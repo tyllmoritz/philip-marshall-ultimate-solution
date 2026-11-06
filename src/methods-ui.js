@@ -79,6 +79,7 @@ export function initMethods({ onChange }) {
     sel.value = method.id;
     $("preset-info").textContent = method.id === CUSTOM ? "Changed - press Save as… to keep it as your own method." : (find(method.id)?.description ?? "");
     $("preset-delete").hidden = !isCustomSaved();
+    $("method-name").textContent = "- " + method.name;
   }
 
   function render() {

@@ -3,7 +3,10 @@ import { MarshallSolver } from "../src/engine/solver.js";
 import { buildMoveTables, FACES } from "../src/engine/cube.js";
 import { compose, flatSolved, flatFromMove, rotationOf, rotationWord, invertRotationWord } from "../src/engine/flat.js";
 import { solvedMask, unsolvedOnOneSide } from "../src/engine/solver.js";
-import { BUILT_IN_PRESETS } from "../src/engine/presets.js";
+import { BUILT_IN_PRESETS, algsetCases } from "../src/engine/presets.js";
+import fs from "node:fs";
+const bundled = (name) => JSON.parse(fs.readFileSync(new URL(`../public/algsets/${name}.json`, import.meta.url), "utf8"));
+const algsets = { oll: algsetCases(bundled("oll"), "oll"), pll: algsetCases(bundled("pll"), "pll") };
 const kp = await cube3x3x3.kpuzzle();
 let t = performance.now();
 const solver = new MarshallSolver(kp);
@@ -78,7 +81,7 @@ function genericCheck(scr, r) {
     const turned = played.filter((m) => /^[xyz]/.test(m));
     const mask = solvedMask(flatOf(played.join(" ") + " " + invertRotationWord(rotationWord(rotationOf(turned))).join(" ")));
     if (required & ~mask) return `step ${i + 1} (${step.name}) undid something the steps before had finished`;
-    const goal = i === 0 ? bits([0, 1, 2, 3], []) : /First Layer/.test(step.name) ? bits([], [0, 1, 2, 3]) : /Second Layer/.test(step.name) ? bits([8, 9, 10, 11], []) : 0;
+    const goal = i === 0 ? bits([0, 1, 2, 3], []) : /First Layer/.test(step.name) ? bits([], [0, 1, 2, 3]) : /Second Layer/.test(step.name) ? bits([8, 9, 10, 11], []) : /F2L \(4 pairs\)/.test(step.name) ? bits([8, 9, 10, 11], [0, 1, 2, 3]) : 0;
     if (goal & ~mask) return `step ${i + 1} (${step.name}) did not finish what it is for`;
     required |= goal;
   }
@@ -103,7 +106,7 @@ for (let i = 0; i < n; i++) {
   let last = "";
   for (let j = 0; j < 30; j++) { let f; do f = FACES[(Math.random() * 6) | 0]; while (f === last); last = f; scr.push(f + ["", "2", "'"][(Math.random() * 3) | 0]); }
   t = performance.now();
-  const r = solver.solve(scr, { f2l, yellowTop, beginner, openSlot, lastLayer, ...(preset ? { steps: preset.steps } : {}) });
+  const r = solver.solve(scr, { f2l, yellowTop, beginner, openSlot, lastLayer, ...(preset ? { steps: preset.steps } : {}), algsets });
   const dt = performance.now() - t;
   if (r.error) { fail++; console.log("FAIL", r.error, scr.join(" ")); continue; }
   // verify with cubing
