@@ -1,6 +1,6 @@
 // Algorithm sets for the OLL / PLL steps: the bundled ones (public/algsets, made from Tao Yu's Alg Trainer with
 // scripts/import-algsets.mjs) and sets imported from a .json file, kept in localStorage ("marshall-algsets").
-import { algsetCases } from "./engine/presets.js";
+import { algsetCases, ALGSET_KINDS } from "./engine/presets.js";
 
 const KEY_SETS = "marshall-algsets";
 const KEY_CHOICE = (kind) => "marshall-algset-" + kind;
@@ -16,7 +16,16 @@ export function initAlgsets({ onChange }) {
   let bundled = []; // [{ slug, name, file }]
   let imported = read(KEY_SETS, []); // [{ slug, name, set }]
   const cache = new Map(); // slug -> set (bundled ones are fetched when first needed)
-  const choice = { oll: localStorage.getItem(KEY_CHOICE("oll")) ?? "oll", pll: localStorage.getItem(KEY_CHOICE("pll")) ?? "pll" };
+  const choice = Object.fromEntries(ALGSET_KINDS.map((k) => [k, localStorage.getItem(KEY_CHOICE(k)) ?? k]));
+  const box = document.getElementById("algsets-selects");
+  for (const kind of ALGSET_KINDS) {
+    const label = document.createElement("label");
+    label.htmlFor = "algset-" + kind;
+    label.textContent = kind.toUpperCase();
+    const sel = document.createElement("select");
+    sel.id = "algset-" + kind;
+    box.append(label, sel);
+  }
 
   const all = () => [...bundled.map((b) => ({ ...b, bundled: true })), ...imported];
 
@@ -39,7 +48,7 @@ export function initAlgsets({ onChange }) {
   }
 
   function render() {
-    for (const kind of ["oll", "pll"]) {
+    for (const kind of ALGSET_KINDS) {
       const sel = document.getElementById("algset-" + kind);
       sel.replaceChildren();
       for (const s of all()) sel.append(new Option(s.name + (s.bundled ? "" : " (imported)"), s.slug));
@@ -66,7 +75,7 @@ export function initAlgsets({ onChange }) {
     }
   }
 
-  for (const kind of ["oll", "pll"]) {
+  for (const kind of ALGSET_KINDS) {
     document.getElementById("algset-" + kind).addEventListener("change", (e) => {
       choice[kind] = e.target.value;
       write(KEY_CHOICE(kind), choice[kind]);
@@ -96,10 +105,10 @@ export function initAlgsets({ onChange }) {
 
   fetchBundled();
   return {
-    /** the sets the OLL and PLL steps use: { oll: [{ label, algs }], pll: [...] } */
-    async payload() {
+    /** the sets the given kinds use: { oll: [{ label, algs }], ... } */
+    async payload(kinds = ALGSET_KINDS) {
       const out = {};
-      for (const kind of ["oll", "pll"]) out[kind] = algsetCases(await setOf(choice[kind]), kind);
+      for (const kind of kinds) out[kind] = algsetCases(await setOf(choice[kind]), kind);
       return out;
     },
   };

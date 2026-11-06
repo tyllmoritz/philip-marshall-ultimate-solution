@@ -256,9 +256,11 @@ A *method* is a list of steps (the first is always a cross) plus options. The st
   if needed, the algorithm repeated n times - searched greedily like the series, and each step only protects what the steps before it finished.
 - **Marshall**: the five steps of the Marshall method (3 center section edges / F2L pairs, top edges, last three edges, five corners, the end game).
 - **CFOP**: F2L (all four pairs, by F2L algorithms; where they get stuck the beginner steps finish the two layers), OLL and PLL from the algorithm sets below (every algorithm of every case, with the top layer turned into place before it - after it too for PLL).
+- **ZZ**: EOLine (a breadth-first table over edge orientation and the two line edges), the left and right 2x2x3 blocks (iterative deepening with pattern databases, only R, U and L turned so the edges stay oriented), then ZBLL - or COLL and ELL - from the algorithm sets.
+- **Roux**: first block (1x2x3, any moves), second block (R, r, U, M), CMLL from the algorithm set, and the last six edges with M and U by a breadth-first table that also tracks how far the middle slice has been turned.
 - **Anything left**: all remaining edges with the edge series, all remaining corners with Niklas - to finish a custom method.
 
-Ready-made presets: CFOP, Marshall, Marshall with F2L pairs, Marshall with the beginner cross, Beginner (layer by layer), Layer by layer with the shortest cross, and Two layers then Marshall.
+Ready-made presets: CFOP, ZZ (ZBLL), ZZ (COLL + ELL), Roux, Marshall, Marshall with F2L pairs, Marshall with the beginner cross, Beginner (layer by layer), Layer by layer with the shortest cross, and Two layers then Marshall.
 The *Method* box on the page selects one, shows its steps (reorder, remove, add) and lets you press **Save as…** to keep your own in the browser (`localStorage`, key `marshall-presets`; the method
 you are working on is `marshall-method`). If a custom method's steps do not leave the cube solved the page says so. `npm test` runs the beginner presets too (every step must keep what the steps before it finished).
 
@@ -266,6 +268,12 @@ you are working on is `marshall-method`). If a custom method's steps do not leav
 
 All method and algorithm settings sit in the collapsed *Methods & algorithms* box under the scramble: the method (preset, steps, save/delete), the options and the algorithm sets.
 The **OLL** and **PLL** steps use a set each. Bundled: `public/algsets/oll.json` and `pll.json`, made from *Tao Yu's Alg Trainer* with `scripts/import-algsets.mjs`
-(OLL 57 cases / 227 algorithms, PLL 21 cases / 58; credit to Tao Yu and the people named in his files). *Import a set…* adds more as `.json` files from the same script
+(F2L 41 cases, OLL 57 / 227 algorithms, PLL 21 / 58, ZBLL 472, COLL 40, ELL 25, CMLL 42; credit to Tao Yu and the people named in his files). *Import a set…* adds more as `.json` files from the same script
 (kept in the browser; any set can then be picked for OLL or PLL). The effect of each algorithm on the pieces is computed by cubing.js, so wide moves (`r`), slices (`M`) and
 rotations that cancel (`x' ... x`) work; algorithms that would leave the cube turned are skipped. The importer treats a single letter like `E` as a name when its row holds other names.
+
+### F2L from the algorithm set
+
+The F2L step (CFOP's four pairs, and Marshall's three with the F2L option) now uses the bundled F2L set first: every algorithm of every case, for every slot (the cube is turned with `y`
+before it), with the top layer turned into place first. It replaced the built-in insertion list as the first choice: in 60 random scrambles the set alone always finished the four pairs, in about
+30 moves on average, where the built-in list got stuck on the last pair in about a third of the cases and the beginner steps that took over needed about 49 moves.

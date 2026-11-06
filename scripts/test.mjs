@@ -6,7 +6,7 @@ import { solvedMask, unsolvedOnOneSide } from "../src/engine/solver.js";
 import { BUILT_IN_PRESETS, algsetCases } from "../src/engine/presets.js";
 import fs from "node:fs";
 const bundled = (name) => JSON.parse(fs.readFileSync(new URL(`../public/algsets/${name}.json`, import.meta.url), "utf8"));
-const algsets = { oll: algsetCases(bundled("oll"), "oll"), pll: algsetCases(bundled("pll"), "pll") };
+const algsets = Object.fromEntries(["f2l", "oll", "pll", "zbll", "coll", "ell", "cmll"].map((k) => [k, algsetCases(bundled(k), k)]));
 const kp = await cube3x3x3.kpuzzle();
 let t = performance.now();
 const solver = new MarshallSolver(kp);
@@ -81,7 +81,7 @@ function genericCheck(scr, r) {
     const turned = played.filter((m) => /^[xyz]/.test(m));
     const mask = solvedMask(flatOf(played.join(" ") + " " + invertRotationWord(rotationWord(rotationOf(turned))).join(" ")));
     if (required & ~mask) return `step ${i + 1} (${step.name}) undid something the steps before had finished`;
-    const goal = i === 0 ? bits([0, 1, 2, 3], []) : /First Layer/.test(step.name) ? bits([], [0, 1, 2, 3]) : /Second Layer/.test(step.name) ? bits([8, 9, 10, 11], []) : /F2L \(4 pairs\)/.test(step.name) ? bits([8, 9, 10, 11], [0, 1, 2, 3]) : 0;
+    const goal = /Cross/.test(step.name) ? bits([0, 1, 2, 3], []) : /First Layer/.test(step.name) ? bits([], [0, 1, 2, 3]) : /Second Layer/.test(step.name) ? bits([8, 9, 10, 11], []) : /F2L \(4 pairs\)/.test(step.name) ? bits([8, 9, 10, 11], [0, 1, 2, 3]) : /Left Block|First Block/.test(step.name) ? bits([3, 11, 9], [2, 3]) : /Right Block|Second Block/.test(step.name) ? bits([1, 10, 8], [1, 0]) : /EOLine/.test(step.name) ? bits([0, 2], []) : 0;
     if (goal & ~mask) return `step ${i + 1} (${step.name}) did not finish what it is for`;
     required |= goal;
   }

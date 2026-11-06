@@ -4,6 +4,7 @@ import { TwistyPlayer } from "cubing/twisty";
 import { initSmartCube } from "./smartcube.js";
 import { initMethods } from "./methods-ui.js";
 import { initAlgsets } from "./algsets.js";
+import { neededKinds } from "./engine/presets.js";
 
 const $ = (id) => document.getElementById(id);
 const MOVE = /^[UDFBRL][2']?$/;
@@ -435,10 +436,11 @@ function solve() {
   current = { scramble, result: null };
   const opts = options();
   const request = { id: nextId, scramble, ...opts };
-  if (opts.steps.some((id) => id === "cfop-oll" || id === "cfop-pll")) {
-    // the OLL / PLL sets travel with the request
+  const kinds = neededKinds(opts.steps, opts.f2l);
+  if (kinds.length) {
+    // the algorithm sets the steps use travel with the request
     const mine = nextId;
-    algsets.payload().then((sets) => { if (mine === nextId) dispatch({ ...request, algsets: sets }); })
+    algsets.payload(kinds).then((sets) => { if (mine === nextId) dispatch({ ...request, algsets: sets }); })
       .catch((err) => { if (mine === nextId) setStatus("Could not load the algorithm sets: " + err.message, true); });
   } else dispatch(request);
 }

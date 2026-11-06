@@ -1,0 +1,219 @@
+{
+ "name": "ELL",
+ "source": "ELL.xlsx",
+ "sheets": [
+  {
+   "sheet": "ELL",
+   "cases": [
+    {
+     "index": 1,
+     "name": "ELL",
+     "algs": [
+      "r U R' U' r' U2 R U R U' R2 U2 R",
+      "R U R' U' r' U2 R U R U' R2 U2 r",
+      "U' M' U' M U2 M' U' M' U' M' U2 M U' M2",
+      "R B M' U M' U M' U2 M U M U M U2 B' R'"
+     ]
+    },
+    {
+     "index": 2,
+     "name": null,
+     "algs": [
+      "M' U M' U M' U M' U2 M' U M' U M' U M'",
+      "M' U M' U M' U2 M U M U M",
+      "M' U M' U M' U M' U M' U' M' U' M' U' M' U'",
+      "M' U' M' U' M' U2 M U' M U' M"
+     ]
+    },
+    {
+     "index": 3,
+     "name": null,
+     "algs": [
+      "M' U M' U M' U M' U' M' U M' U M' U M'",
+      "M' U2 M U2 M' U' M U2 M' U2 M",
+      "M' U M' U M' U M' U M U M U M U M",
+      "M' U' M' U' M' U' M' U M' U' M' U' M' U' M'"
+     ]
+    },
+    {
+     "index": 4,
+     "name": null,
+     "algs": [
+      "U2 M' U M U2 M' U M",
+      "M U M' U2 M U M'",
+      "R' B' D2 L2 U2 F' L2 D2 R'"
+     ]
+    },
+    {
+     "index": 5,
+     "name": null,
+     "algs": [
+      "M U' M' U2 M U' M'",
+      "U2 M' U' M U2 M' U' M",
+      "R' D2 L2 B' U2 L2 D2 F' R'",
+      "R D2 L2 F U2 L2 D2 B R"
+     ]
+    },
+    {
+     "index": 6,
+     "name": null,
+     "algs": [
+      "U' r' U' R U M' U' R' U R"
+     ]
+    },
+    {
+     "index": 7,
+     "name": null,
+     "algs": [
+      "U' r U R' U' M U R U' R'"
+     ]
+    },
+    {
+     "index": 8,
+     "name": null,
+     "algs": [
+      "U' R U R' U' M' U R U' r'"
+     ]
+    },
+    {
+     "index": 9,
+     "name": null,
+     "algs": [
+      "U L' U' L U M' U' L' U l",
+      "U' R' U' R U M U' R' U r"
+     ]
+    },
+    {
+     "index": 10,
+     "name": null,
+     "algs": [
+      "M' U M U M' U2 M' U M' U M U M' U M'"
+     ]
+    },
+    {
+     "index": 11,
+     "name": null,
+     "algs": [
+      "U' M' U' M U M' U M U M' U M U2 M' U' M",
+      "U M' U' M U M' U M U M' U M U2 M' U' M"
+     ]
+    },
+    {
+     "index": 12,
+     "name": null,
+     "algs": [
+      "M' U' M' U2 M' U M U' M' U2 M U M2"
+     ]
+    },
+    {
+     "index": 13,
+     "name": null,
+     "algs": [
+      "M' U M' U2 M' U' M U M' U2 M U' M2"
+     ]
+    },
+    {
+     "index": 14,
+     "name": null,
+     "algs": [
+      "M2 U M' U2 M U' M' U M U2 M U' M",
+      "M2 U M U' M' U' M' U M' U M' U' M",
+      "U r' U' r R2 U' R2 U' R2 U2 R2 U2 r' U r"
+     ]
+    },
+    {
+     "index": 15,
+     "name": null,
+     "algs": [
+      "M2 U' M' U2 M U M' U' M U2 M U M",
+      "U r U r' R2 U R2 U R2 U2 R2 U2 r U' r'"
+     ]
+    },
+    {
+     "index": 16,
+     "name": null,
+     "algs": [
+      "U M' U' M' U2 M U' M2 U' M'"
+     ]
+    },
+    {
+     "index": 17,
+     "name": null,
+     "algs": [
+      "U' M' U M' U2 M U M2 U M'"
+     ]
+    },
+    {
+     "index": 18,
+     "name": null,
+     "algs": [
+      "U' F R U R' U' F2 L' U' L U F",
+      "M U' M' U2 M U' M U' M' U2 M U' M2",
+      "U' R2 F R2 U R' U' R' F' R U2 R U' R' U' R"
+     ]
+    },
+    {
+     "index": 19,
+     "name": null,
+     "algs": [
+      "F R U R' U' F' R' U' R' F R F' U R",
+      "U2 M' U M U M' U2 M U' M' U' M"
+     ]
+    },
+    {
+     "index": 20,
+     "name": null,
+     "algs": [
+      "M' U M U' M' U M U M' U2 M"
+     ]
+    },
+    {
+     "index": 21,
+     "name": null,
+     "algs": [
+      "U M' U' M U M' U' M U' M' U2 M"
+     ]
+    },
+    {
+     "index": 22,
+     "name": null,
+     "algs": [
+      "r' U M2 U' r U2 r' U M2 U' r",
+      "M U' M' U2 M U' M2 U M U2 M' U M",
+      "U R U2 R2 F R F' R U2 R' U R U2 R2 F R F' R U2 R' U",
+      "M' U' M' U2 M' U M' M' U' M' U2 M' U M'"
+     ]
+    },
+    {
+     "index": 23,
+     "name": null,
+     "algs": [
+      "M U R U R' U' M2 U R U' r'",
+      "r U R' U' M2 U R U' R' U' M'",
+      "L2 R D' B D L2 R' F R U' R' F'"
+     ]
+    },
+    {
+     "index": 24,
+     "name": null,
+     "algs": [
+      "M' U' M U' M' U' M U' M' U' M",
+      "U M' U M U M' U M U M' U M",
+      "R' U' R' F R F' U R F R U R' U' F'",
+      "U2 R U2 R' F' U' F R U' R' F' U2 F"
+     ]
+    },
+    {
+     "index": 25,
+     "name": null,
+     "algs": [
+      "R U R' U' M' U2 R' U' R2 U' r' U R' U R",
+      "R' U2 R U' R' U' R' F R2 U R' U' R' F' R2",
+      "R U2 R' U2 R' F R U R U' R2 F' R U R U' R'",
+      "R2 F R U R U' R2 F' R U R U R' U2 R"
+     ]
+    }
+   ]
+  }
+ ]
+}

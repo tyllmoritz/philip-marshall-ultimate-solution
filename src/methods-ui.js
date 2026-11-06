@@ -1,6 +1,6 @@
 // The "Method" part of the page: a preset (ready-made or your own), its steps, and the options. Custom presets live in
 // localStorage ("marshall-presets"); the method being worked on is remembered too ("marshall-method").
-import { BUILT_IN_PRESETS, STEP_LIBRARY, cleanPreset, stepLabel } from "./engine/presets.js";
+import { BUILT_IN_PRESETS, STEP_LIBRARY, START_STEPS, cleanPreset, stepLabel } from "./engine/presets.js";
 
 const $ = (id) => document.getElementById(id);
 const KEY_PRESETS = "marshall-presets";
@@ -34,7 +34,7 @@ export function initMethods({ onChange }) {
       const li = document.createElement("li");
       if (i === 0) {
         const sel = document.createElement("select");
-        for (const s of STEP_LIBRARY.filter((x) => x.group === "Cross")) sel.append(new Option(s.label, s.id, false, s.id === id));
+        for (const s of START_STEPS.map((x) => STEP_LIBRARY.find((l) => l.id === x))) sel.append(new Option(s.label, s.id, false, s.id === id));
         sel.addEventListener("change", () => { method.steps[0] = sel.value; changed(); update(true); });
         li.append(sel);
       } else {
@@ -85,8 +85,9 @@ export function initMethods({ onChange }) {
   function render() {
     renderSelect();
     renderSteps();
-    $("yellow").checked = method.yellowTop || method.steps[0] === "cross-daisy";
-    $("yellow").disabled = method.steps[0] === "cross-daisy"; // built from the yellow side
+    const fromYellow = ["cross-daisy", "zz-eoline", "roux-fb"].includes(method.steps[0]); // these are built in the turned-over frame
+    $("yellow").checked = method.yellowTop || fromYellow;
+    $("yellow").disabled = fromYellow;
     $("f2l").checked = method.f2l;
     $("openslot").checked = method.openSlot;
     $("lastlayer").checked = method.lastLayer;
@@ -146,7 +147,7 @@ export function initMethods({ onChange }) {
     options: () => ({
       steps: [...method.steps],
       f2l: method.f2l,
-      yellowTop: method.yellowTop || method.steps[0] === "cross-daisy",
+      yellowTop: method.yellowTop || ["cross-daisy", "zz-eoline", "roux-fb"].includes(method.steps[0]),
       openSlot: method.openSlot,
       lastLayer: method.lastLayer,
     }),

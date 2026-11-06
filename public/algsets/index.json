@@ -3,12 +3,49 @@
   "slug": "oll",
   "name": "OLL",
   "file": "oll.json",
+  "kind": "oll",
   "source": "Tao Yu's Alg Trainer"
  },
  {
   "slug": "pll",
   "name": "PLL",
   "file": "pll.json",
+  "kind": "pll",
+  "source": "Tao Yu's Alg Trainer"
+ },
+ {
+  "slug": "zbll",
+  "name": "ZBLL",
+  "file": "zbll.json",
+  "kind": "zbll",
+  "source": "Tao Yu's Alg Trainer"
+ },
+ {
+  "slug": "coll",
+  "name": "COLL",
+  "file": "coll.json",
+  "kind": "coll",
+  "source": "Tao Yu's Alg Trainer"
+ },
+ {
+  "slug": "ell",
+  "name": "ELL",
+  "file": "ell.json",
+  "kind": "ell",
+  "source": "Tao Yu's Alg Trainer"
+ },
+ {
+  "slug": "cmll",
+  "name": "CMLL",
+  "file": "cmll.json",
+  "kind": "cmll",
+  "source": "Tao Yu's Alg Trainer"
+ },
+ {
+  "slug": "f2l",
+  "name": "F2L",
+  "file": "f2l.json",
+  "kind": "f2l",
   "source": "Tao Yu's Alg Trainer"
  }
 ]
