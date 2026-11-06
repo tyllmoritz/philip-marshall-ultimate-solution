@@ -238,3 +238,10 @@ Rotations after the last move are dropped: a solved cube can be put down any way
 The page has a web app manifest and icons, so browsers offer *Install as an app* (there is a link under the title when the browser allows it), and a service worker
 (`sw.js`, written by `vite.config.js` at build time) that precaches every file of the build and serves from the cache first - after the first visit the solver, the cubes and the
 scrambler work without a network (Bluetooth needs none). A new build gets a new cache name, so updates arrive on the next load. Icons: `public/icons/icon.svg` (source) and PNGs rendered from it.
+
+## Reading algorithm sets (Tao Yu's Alg Trainer)
+
+`node scripts/import-algsets.mjs "<folder with the .xlsx files>" [output folder, default data/]` turns the spreadsheets - one technique per file (OLL, PLL, F2L, CLS,
+COLL, ZBLL, CMLL, ...) - into JSON: `{ name, source, sheets: [{ sheet, cases: [{ index, name?, algs: [...] }] }] }` plus an `index.json`. It needs no dependencies
+(an .xlsx is a zip of XML; the script reads it with `node:zlib`). The 53 files of the trainer give about 5000 cases and 8700 algorithms; every one parses with cubing.js.
+The generated `data/` is not committed (it is someone else's collection).

@@ -106,7 +106,7 @@ export function mergeTurns(moves) {
 
 const QUARTERS = (m) => (m.length === 1 ? 1 : m[1] === "2" ? 2 : 3);
 const SUFFIX = ["", "", "2", "'"];
-const KIND_RANK = { edge: 3, corner: 3, turns: 2, setup: 1, undo: 1 };
+const KIND_RANK = { edge: 3, corner: 3, alg: 3, turns: 2, setup: 1, undo: 1 };
 
 /**
  * Cancel turns across all boundaries (series/setup/undo/steps), also reaching
@@ -115,13 +115,14 @@ const KIND_RANK = { edge: 3, corner: 3, turns: 2, setup: 1, undo: 1 };
 export function optimizeSteps(steps) {
   const stack = [];
   steps.forEach((step, si) => step.parts.forEach((part) => part.moves.forEach((m, mi, arr) => {
-    const tok = { m, kind: part.kind, act: part.act, step: si, pair: part.pair, frees: part.frees };
+    const tok = { m, kind: part.kind, act: part.act, step: si, pair: part.pair, frees: part.frees, label: part.label };
     // a top-layer turn at either end of an edge series is optional (it only turns the layer the series is not about):
     // it may cancel against a neighbouring turn of that layer instead of being done twice
-    const optional = part.kind === "edge" && arr.length === 4 && m[0] === "U" && (mi === 0 || mi === 3);
+    const optional = (part.kind === "edge" && arr.length === 4 && m[0] === "U" && (mi === 0 || mi === 3))
+      || (part.kind === "alg" && m[0] === "U" && (mi === 0 || mi === arr.length - 1));
     tok.optional = optional;
     // series stay exactly as written (front/top) and rotations are barriers, so nothing cancels into them
-    const solid = (part.kind === "edge" || part.kind === "corner" || part.kind === "rotate") && !optional;
+    const solid = (part.kind === "edge" || part.kind === "corner" || part.kind === "rotate" || part.kind === "alg") && !optional;
     tok.solid = solid;
     if (solid) { stack.push(tok); return; }
     for (let j = stack.length - 1; j >= 0; j--) {
@@ -158,7 +159,7 @@ export function optimizeSteps(steps) {
       const last = parts[parts.length - 1];
       const sameGroup = last && last.kind === kind && (kind === "setup" || kind === "turns" || last.act === t.act);
       if (sameGroup) last.moves.push(t.m);
-      else parts.push({ kind, moves: [t.m], act: t.act, ...(t.pair !== undefined ? { pair: t.pair, ...(t.frees ? { frees: true } : {}) } : {}) });
+      else parts.push({ kind, moves: [t.m], act: t.act, ...(t.pair !== undefined ? { pair: t.pair, ...(t.frees ? { frees: true } : {}) } : {}), ...(t.label ? { label: t.label } : {}) });
     }
     return { name: step.name, parts, count: parts.reduce((n, p) => n + (p.kind === "rotate" ? 0 : p.moves.length), 0) };
   });
@@ -259,6 +260,25 @@ function mirrorAlg(moves) {
 
 /** Table entry whose setup (and first turn) are turns of the top layer only. */
 const setupIsU = (e) => e.setup.every((m) => m[0] === "U") && e.pre.every((m) => m[0] === "U");
+
+export const MARSHALL_STEPS = ["cross-optimal", "marshall-mid", "marshall-top", "marshall-last", "marshall-corners", "marshall-end"];
+
+// the algorithms of the layer-by-layer method (cross below, yellow on top; right-hand versions, the other slots by turning the cube)
+const LBL = {
+  corners: [{ alg: "R U R' U'", repeat: [1, 2, 3, 4, 5], label: "Insert the corner" }],
+  middle: [
+    { alg: "U R U' R' U' F' U F", label: "Edge to the right" },
+    { alg: "U' L' U L U F U' F'", label: "Edge to the left" },
+  ],
+  ycross: [
+    { alg: "F R U R' U' F'", repeat: [1, 2], label: "Yellow cross" },
+    { alg: "F U R U' R' F'", repeat: [1, 2], label: "Yellow cross (mirrored)" },
+  ],
+  yedges: [
+    { alg: "R U R' U R U2 R'", label: "Swap yellow edges (Sune)" },
+    { alg: "R' U' R U' R' U2 R", label: "Swap yellow edges (anti-Sune)" },
+  ],
+};
 
 const OPPOSITE = { U: "D", D: "U", F: "B", B: "F", R: "L", L: "R" };
 function setupSequences(maxLen) {
@@ -687,9 +707,12 @@ export class MarshallSolver {
    * candidate if a later step cannot be finished from it).
    */
   solve(scrambleMoves, options = {}) {
-    const { yellowTop = false, beginner = false } = options;
+    const steps = options.steps ?? null;
+    const crossId = steps?.[0]?.startsWith("cross-") ? steps[0] : options.beginner ? "cross-daisy" : "cross-optimal";
+    const daisy = crossId === "cross-daisy";
+    const yellowTop = daisy || !!options.yellowTop; // the daisy is built from the yellow side
     const start = this.run(this.solvedFlat, scrambleMoves);
-    if (beginner) {
+    if (daisy) {
       this.actionId = 0;
       try {
         return { ...this.solveFrom(this.beginnerCross(start), { ...options, yellowTop: true }), crossFace: "D" };
@@ -837,7 +860,7 @@ export class MarshallSolver {
     return all.length ? all : this.rank(plain);
   }
 
-  solveFrom(cross, { f2l = false, yellowTop = false, openSlot = false, lastLayer = false } = {}) {
+  solveFrom(cross, { f2l = false, yellowTop = false, openSlot = false, lastLayer = false, steps: stepIds = null, partial = false } = {}) {
     this.uOnly = openSlot; // edge series are set up with U turns only (they work at the open slot)
     if (!cross.parts) this.actionId = 0;
     const edgeTarget = { target: { edges: ALL_EDGES, corners: [] }, goal: 12 };
@@ -859,27 +882,49 @@ export class MarshallSolver {
     };
     // step 4 is judged by what it leaves: a position the end game solves with a single Niklas counts for a lot
     const leavesSingle = (c) => (this.endgameSingle(c.state) ? 0 : 25);
-    const stages = [
-      (s) => this.step2Candidates(s, f2l),
-      // step 3: down to the key position - one middle-layer edge and two top-layer edges are wrong and one
-      // hedgeslammer / sledgehammer / sexy move (no setup) finishes them. Step 4 is that one series.
-      (s, ctx) => this.rank((pick) => {
-        const need = ctx.corners.reduce((m, i) => m | (1 << (12 + i)), 0);
-        let r;
-        try {
-          r = this.reachKey(s, ctx.corners, edgeTarget, pick);
-        } catch {
-          r = this.finishEdges(s, ctx.corners, edgeTarget, pick); // no key position within reach: solve the edges outright
-        }
+    const topEdges = (s, ctx) => this.rank((pick) => {
+      // down to the key position - one middle-layer edge and two top-layer edges are wrong and one
+      // hedgeslammer / sledgehammer / sexy move (no setup) finishes them
+      let r;
+      try {
+        r = this.reachKey(s, ctx.corners, edgeTarget, pick);
+      } catch {
+        r = this.finishEdges(s, ctx.corners, edgeTarget, pick); // no key position within reach: solve the edges outright
+      }
+      return { parts: this.actionsToParts(r.actions, "edge"), state: r.state };
+    }, 8).map((c) => ({ ...c, name: "Top Edge Pieces" }));
+    const only = (target) => ({ target, goal: target.edges.length + target.corners.length, count: undefined });
+    const topPos = (f) => [0, 1, 2, 3].filter((i) => f[24 + i] === i).length; // yellow corners in their places
+    const topOriented = (f) => [0, 1, 2, 3].filter((i) => f[12 + i] === 0).length; // yellow edges facing up
+    const named = (name, stage) => (s, ctx) => stage(s, ctx).map((c) => ({ ...c, name }));
+    const builders = {
+      "marshall-mid": (s) => this.step2Candidates(s, f2l),
+      "marshall-top": topEdges,
+      "marshall-last": (s, ctx) => this.lastEdges(s, ctx.corners).map((c) => ({ ...c, name: "Last Three Edge Pieces" })),
+      "marshall-corners": cornerStage("Five Corner Pieces", 5, fiveOnASide, 10, leavesSingle),
+      "marshall-end": endGame,
+      "edges-all": (s, ctx) => this.rank((pick) => {
+        const r = this.finishEdges(s, ctx.corners, edgeTarget, pick);
         return { parts: this.actionsToParts(r.actions, "edge"), state: r.state };
-      }, 8).map((c) => ({ ...c, name: "Top Edge Pieces" })),
-      (s, ctx) => this.lastEdges(s, ctx.corners).map((c) => ({ ...c, name: "Last Three Edge Pieces" })),
-      cornerStage("Five Corner Pieces", 5, fiveOnASide, 10, leavesSingle),
-      endGame,
-    ];
+      }, 6).map((c) => ({ ...c, name: "All Edge Pieces" })),
+      "corners-all": cornerStage("All Corner Pieces", 8),
+      // layer by layer (the beginner method): all in the turned-over frame, white cross below, yellow on top
+      "lbl-corners": named("First Layer Corners", this.macroStage("lbl-corners", LBL.corners, { target: { edges: [], corners: [4, 5, 6, 7] }, goal: 4 })),
+      "lbl-middle": named("Second Layer Edges", this.macroStage("lbl-middle", LBL.middle, { target: { edges: MIDDLE, corners: [] }, goal: 4 })),
+      "lbl-ycross": named("Yellow Cross", this.macroStage("lbl-ycross", LBL.ycross, { target: { edges: [], corners: [] }, goal: 4, count: topOriented })),
+      "lbl-yedges": named("Yellow Edges", this.macroStage("lbl-yedges", LBL.yedges, { target: { edges: [0, 1, 2, 3], corners: [] }, goal: 4 })),
+      "lbl-ycorners-pos": named("Yellow Corners: Position", (s) => this.rank((pick) => {
+        const r = this.climb(s, this.cornerTable, { target: { edges: [], corners: [] }, goal: 4, count: topPos, pick });
+        return { parts: this.actionsToParts(r.actions, "corner"), state: r.state };
+      }, 6)),
+      "lbl-ycorners-twist": named("Yellow Corners: Twist", (s) => [this.twistCorners(s)]),
+    };
+    const stageIds = (stepIds ?? MARSHALL_STEPS).filter((id) => !id.startsWith("cross-"));
+    for (const id of stageIds) if (!builders[id]) throw new Error("unknown step " + id);
+    const stages = stageIds.map((id) => builders[id]);
     const go = (i, s, ctx) => {
       if (i === stages.length) {
-        if (flatKey(s) !== flatKey(this.solvedFlat)) throw new Error("internal error: cube not solved");
+        if (!partial && flatKey(s) !== flatKey(this.solvedFlat)) throw new Error("these steps do not solve the cube");
         return [];
       }
       for (const c of stages[i](s, ctx)) {
@@ -903,6 +948,78 @@ export class MarshallSolver {
       steps, total: steps.reduce((n, st) => n + st.count, 0), solution: all, mcc: movecount(all), f2lPairs: chosen[0].pairs,
       setupRotation: stripped.setupRotation, restoreRotation: stripped.restoreRotation,
     };
+  }
+
+
+  /**
+   * A table of macros "turn the top layer into place, (rotate the cube), an algorithm repeated n times" for the beginner
+   * steps. Entries look like the series entries (flat, pre, series, canon, word, cost, mask) so `climb` can use them.
+   * spec = [{ alg, repeat: [1, 2, ...], label }]
+   */
+  macroTable(name, spec) {
+    this._macros ??= {};
+    if (this._macros[name]) return this._macros[name];
+    const rotations = ROTATIONS.filter((r) => r.U === "U").map((rot) => ({ rot, word: rotationWord(rot) }));
+    const entries = new Map();
+    for (const item of spec) {
+      const base = parseAlg(item.alg);
+      for (const n of item.repeat ?? [1]) {
+        const series = Array.from({ length: n }, () => base).flat();
+        for (const { rot, word } of rotations) {
+          const mapped = mapAlg(rot, series);
+          const macro = this.run(this.solvedFlat, mapped);
+          for (const pre of [[], ["U"], ["U2"], ["U'"]]) {
+            const flat = pre.length ? compose(this.flatMoves[pre[0]], macro) : macro;
+            const cost = weight(pre) + weight(series) + 2 * ROTATE_WEIGHT * word.length;
+            const key = flatKey(flat);
+            const cur = entries.get(key);
+            if (!cur || cost < cur.cost) {
+              entries.set(key, { flat, pre, setup: [], series: mapped, canon: series, word, cost, mask: solvedMask(flat), label: item.label + (n > 1 ? ` x${n}` : "") });
+            }
+          }
+        }
+      }
+    }
+    const table = [...entries.values()].sort((a, b) => a.cost - b.cost);
+    this._macros[name] = table;
+    return table;
+  }
+
+  /** Greedy macro search as a step: candidates from several first choices, best movecount coefficient first. */
+  macroStage(name, spec, { target, goal, count }) {
+    return (s) => this.rank((pick) => {
+      const r = this.climb(s, this.macroTable(name, spec), { target, goal, count, pick });
+      return { parts: this.actionsToParts(r.actions, "alg"), state: r.state };
+    }, 6);
+  }
+
+  /**
+   * Last step of the layer-by-layer method: twist the yellow corners in place. Hold the unsolved corner at the front
+   * right of the top layer, repeat R' D' R D until it is right (the layers below look scrambled meanwhile), turn U to
+   * the next corner, and finally turn D and U back into line.
+   */
+  twistCorners(s) {
+    const trigger = parseAlg("R' D' R D");
+    const solved = (f) => flatKey(f) === flatKey(this.solvedFlat);
+    let st = s;
+    const parts = [];
+    for (let i = 0; i < 4; i++) {
+      let k = 0, cur = st;
+      while (k < 6 && cur[32] !== 0) { cur = this.run(cur, trigger); k++; }
+      if (cur[32] !== 0) throw new Error("corner cannot be twisted");
+      if (k) parts.push({ kind: "alg", moves: Array.from({ length: k }, () => trigger).flat(), act: this.actionId++, label: `Twist the corner x${k}` });
+      st = cur;
+      if (i < 3) { parts.push({ kind: "turns", moves: ["U"], act: this.actionId++ }); st = this.run(st, ["U"]); }
+    }
+    for (const d of [0, 1, 2, 3]) for (const u of [0, 1, 2, 3]) {
+      const moves = [...Array(d).fill("D"), ...Array(u).fill("U")];
+      const fin = this.run(st, moves);
+      if (solved(fin)) {
+        if (moves.length) parts.push({ kind: "turns", moves: [...(d ? [["D", "D2", "D'"][d - 1]] : []), ...(u ? [["U", "U2", "U'"][u - 1]] : [])], act: this.actionId++ });
+        return { parts, state: fin, score: this.mcc(parts) };
+      }
+    }
+    throw new Error("layers do not line up");
   }
 
   /** Corner-preserving finish of the five remaining edges after the pairs are in. */
@@ -1085,7 +1202,7 @@ export class MarshallSolver {
         parts.push({ kind: "rotate", moves: word, act });
       }
       if (setup.length) parts.push({ kind: "setup", moves: setup, act });
-      parts.push({ kind, moves: a.canon ?? a.series, act, ...(a.pairEdge !== undefined ? { pair: a.pairEdge } : a.pairFor !== undefined ? { pair: a.pairFor, frees: true } : {}) });
+      parts.push({ kind, moves: a.canon ?? a.series, act, ...(a.label ? { label: a.label } : {}), ...(a.pairEdge !== undefined ? { pair: a.pairEdge } : a.pairFor !== undefined ? { pair: a.pairFor, frees: true } : {}) });
       if (setup.length) parts.push({ kind: "undo", moves: invertAlg(setup), act });
       if (word.length) parts.push({ kind: "rotate", moves: invertRotationWord(word), act });
     }
