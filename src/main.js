@@ -2,6 +2,7 @@ import { Alg } from "cubing/alg";
 import { randomScrambleForEvent } from "cubing/scramble";
 import { TwistyPlayer } from "cubing/twisty";
 import { initSmartCube } from "./smartcube.js";
+import { initMethods } from "./methods-ui.js";
 
 const $ = (id) => document.getElementById(id);
 const MOVE = /^[UDFBRL][2']?$/;
@@ -163,6 +164,7 @@ function shortInfo(part) {
         : part.moves.every((x) => "RLUD".includes(x[0])) ? "Sexy move" : "Hedgeslammer, turned";
       return `${name} · cycles three edges`;
     }
+    case "alg": return part.label ?? "Algorithm";
     case "corner": return `Niklas${part.moves[0] === "U" ? "" : " (inverse)"} · cycles three corners`;
     case "f2l": {
       // the pair's edge, as the solver sees it (cube turned over): which physical edge that is, and so its two colours
@@ -404,13 +406,8 @@ $("random").addEventListener("click", async () => {
   solve();
 });
 
-const options = () => ({
-  f2l: $("f2l").checked,
-  yellowTop: $("yellow").checked || $("beginner").checked,
-  beginner: $("beginner").checked,
-  openSlot: $("openslot").checked,
-  lastLayer: $("lastlayer").checked,
-});
+const methods = initMethods({ onChange: () => solve() });
+const options = () => methods.options();
 
 /** Solve whatever the scramble field and options say now; any calculation still running is aborted. */
 function solve() {
@@ -460,8 +457,8 @@ function finish(result) {
   smart.onSolution();
 }
 
-const SERIES_KINDS = ["edge", "corner", "f2l", "turns", "daisy", "insert"];
-const KIND_LABEL = { daisy: "daisy: white edges up around the yellow centre", insert: "half turn into the white cross", edge: "Hedgeslammer / Sledgehammer / sexy move (edge series)", corner: "Niklas (corner series)", setup: "setup / undo turns", undo: "undo", turns: "turns", rotate: "cube rotation", f2l: "F2L algorithm" };
+const SERIES_KINDS = ["edge", "corner", "f2l", "turns", "daisy", "insert", "alg"];
+const KIND_LABEL = { alg: "algorithm", daisy: "daisy: white edges up around the yellow centre", insert: "half turn into the white cross", edge: "Hedgeslammer / Sledgehammer / sexy move (edge series)", corner: "Niklas (corner series)", setup: "setup / undo turns", undo: "undo", turns: "turns", rotate: "cube rotation", f2l: "F2L algorithm" };
 
 /** What a part of the solution does, for the // comments in the player and its Twizzle link. */
 function describe(p, parts, k) {
@@ -476,6 +473,7 @@ function describe(p, parts, k) {
   if (p.kind === "corner") return `Niklas${p.moves[0] === "U" ? "" : " inverse"} (corner series): cycles three corners and twists them, edges stay put`;
   if (p.kind === "f2l") return "F2L algorithm: insert a corner-edge pair next to the cross";
   if (p.kind === "daisy" || p.kind === "insert") return "Beginner cross";
+  if (p.kind === "alg") return p.label ?? "Algorithm";
   if (p.kind === "rotate") return series(next) ? "Rotate the cube so the series is done at the front/top" : "Rotate back to the original orientation";
   if (p.kind === "setup") return series(next) || next === "rotate" ? "Setup: bring the pieces into position" : "Undo the setup";
   return k ? "Turn the layer to line up the next pieces" : "Turn the layer to line up the pieces";
@@ -747,24 +745,6 @@ const smart = initSmartCube({
     solve();
   },
 });
-
-const OPTION_IDS = ["f2l", "yellow", "beginner", "openslot", "lastlayer"];
-const syncOptions = () => {
-  // the beginner cross is built from the yellow side, so it implies yellow on top
-  if ($("beginner").checked) $("yellow").checked = true;
-  $("yellow").disabled = $("beginner").checked;
-};
-try {
-  for (const id of OPTION_IDS) $(id).checked = localStorage.getItem("marshall-" + id) === "1";
-} catch {}
-syncOptions();
-for (const id of OPTION_IDS) {
-  $(id).addEventListener("change", () => {
-    syncOptions();
-    try { localStorage.setItem("marshall-" + id, $(id).checked ? "1" : "0"); } catch {}
-    solve(); // re-solve with the new option
-  });
-}
 
 $("scramble").value = randomScramble().join(" ");
 show(parseScramble($("scramble").value), []);

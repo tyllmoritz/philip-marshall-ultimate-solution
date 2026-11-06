@@ -3,6 +3,7 @@ import { MarshallSolver } from "../src/engine/solver.js";
 import { buildMoveTables, FACES } from "../src/engine/cube.js";
 import { compose, flatSolved, flatFromMove, rotationOf, rotationWord, invertRotationWord } from "../src/engine/flat.js";
 import { solvedMask, unsolvedOnOneSide } from "../src/engine/solver.js";
+import { BUILT_IN_PRESETS } from "../src/engine/presets.js";
 const kp = await cube3x3x3.kpuzzle();
 let t = performance.now();
 const solver = new MarshallSolver(kp);
@@ -63,11 +64,35 @@ function checkSteps(solver, scr, r, f2l, yellowTop, opts = {}) {
   if (masks[5] !== (1 << 20) - 1) return "step 6: not solved";
   return null;
 }
+/** Any method: what a step finishes stays finished (cross, first layer, second layer), and the last step leaves the cube solved. */
+function genericCheck(scr, r) {
+  const flatOf = (alg) => {
+    const t = kp.algToTransformation(alg).transformationData;
+    return flatFromMove({ ep: Uint8Array.from(t.EDGES.permutation), eo: Uint8Array.from(t.EDGES.orientationDelta), cp: Uint8Array.from(t.CORNERS.permutation), co: Uint8Array.from(t.CORNERS.orientationDelta) });
+  };
+  const bits = (edges, corners) => edges.reduce((m, i) => m | (1 << i), 0) | corners.reduce((m, i) => m | (1 << (12 + i)), 0);
+  const played = [...scr, ...r.setupRotation];
+  let required = 0; // in the original orientation: cross = edges 0-3, first layer corners 0-3, middle edges 8-11
+  for (const [i, step] of r.steps.entries()) {
+    played.push(...step.parts.flatMap((p) => p.moves));
+    const turned = played.filter((m) => /^[xyz]/.test(m));
+    const mask = solvedMask(flatOf(played.join(" ") + " " + invertRotationWord(rotationWord(rotationOf(turned))).join(" ")));
+    if (required & ~mask) return `step ${i + 1} (${step.name}) undid something the steps before had finished`;
+    const goal = i === 0 ? bits([0, 1, 2, 3], []) : /First Layer/.test(step.name) ? bits([], [0, 1, 2, 3]) : /Second Layer/.test(step.name) ? bits([8, 9, 10, 11], []) : 0;
+    if (goal & ~mask) return `step ${i + 1} (${step.name}) did not finish what it is for`;
+    required |= goal;
+  }
+  const f = flatOf(played.join(" ") + " " + invertRotationWord(rotationWord(rotationOf(played.filter((m) => /^[xyz]/.test(m))))).join(" "));
+  return solvedMask(f) === (1 << 20) - 1 ? null : "the last step does not leave the cube solved";
+}
 const n = +process.argv[2] || 20;
 const mode = process.argv[3] ?? "";
-const f2l = mode.includes("f2l");
-const yellowTop = mode.includes("yellow") || mode.includes("beginner");
-const beginner = mode.includes("beginner");
+const presetId = /^preset=(.+)$/.exec(mode)?.[1] ?? null;
+const preset = presetId ? BUILT_IN_PRESETS.find((p) => p.id === presetId) : null;
+if (presetId && !preset) { console.log("unknown preset", presetId); process.exit(1); }
+const f2l = preset ? preset.f2l : mode.includes("f2l");
+const yellowTop = preset ? preset.yellowTop : mode.includes("yellow") || mode.includes("beginner");
+const beginner = !preset && mode.includes("beginner");
 const openSlot = mode.includes("open");
 const lastLayer = mode.includes("layer");
 let f2lUsed = 0;
@@ -78,7 +103,7 @@ for (let i = 0; i < n; i++) {
   let last = "";
   for (let j = 0; j < 30; j++) { let f; do f = FACES[(Math.random() * 6) | 0]; while (f === last); last = f; scr.push(f + ["", "2", "'"][(Math.random() * 3) | 0]); }
   t = performance.now();
-  const r = solver.solve(scr, { f2l, yellowTop, beginner, openSlot, lastLayer });
+  const r = solver.solve(scr, { f2l, yellowTop, beginner, openSlot, lastLayer, ...(preset ? { steps: preset.steps } : {}) });
   const dt = performance.now() - t;
   if (r.error) { fail++; console.log("FAIL", r.error, scr.join(" ")); continue; }
   // verify with cubing
@@ -86,7 +111,7 @@ for (let i = 0; i < n; i++) {
   const td = kp.algToTransformation(alg).transformationData; const ok = td.EDGES.permutation.every((p,i)=>p===i) && td.EDGES.orientationDelta.every(o=>!o) && td.CORNERS.permutation.every((p,i)=>p===i) && td.CORNERS.orientationDelta.every(o=>!o);
   if (!ok) { fail++; console.log("WRONG", scr.join(" ")); }
   // every step must leave the cube in its target state
-  const problems = checkSteps(solver, scr, r, f2l, yellowTop, { openSlot, lastLayer });
+  const problems = preset && !/^marshall(-f2l)?$/.test(preset.id) ? genericCheck(scr, r) : checkSteps(solver, scr, r, f2l, yellowTop, { openSlot, lastLayer });
   if (problems) { fail++; console.log("STEP TARGET", problems, scr.join(" ")); continue; }
   totals.push(r.total);
   if (r.f2lPairs) f2lUsed++;

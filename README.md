@@ -245,3 +245,18 @@ scrambler work without a network (Bluetooth needs none). A new build gets a new 
 COLL, ZBLL, CMLL, ...) - into JSON: `{ name, source, sheets: [{ sheet, cases: [{ index, name?, algs: [...] }] }] }` plus an `index.json`. It needs no dependencies
 (an .xlsx is a zip of XML; the script reads it with `node:zlib`). The 53 files of the trainer give about 5000 cases and 8700 algorithms; every one parses with cubing.js.
 The generated `data/` is not committed (it is someone else's collection).
+
+## Methods, steps and presets
+
+A *method* is a list of steps (the first is always a cross) plus options. The step library (`src/engine/presets.js`):
+
+- **Cross**: shortest, or the beginner daisy + half turns.
+- **Layer by layer** (beginner): first layer corners (`R U R' U'` repeated), second layer edges (`U R U' R' U' F' U F` and its mirror), yellow cross (`F R U R' U' F'`),
+  yellow edges (Sune / anti-Sune), yellow corners: position (Niklas) and twist (`R' D' R D` repeated). Each is a small table of macros - turn the top layer into place, turn the cube
+  if needed, the algorithm repeated n times - searched greedily like the series, and each step only protects what the steps before it finished.
+- **Marshall**: the five steps of the Marshall method (3 center section edges / F2L pairs, top edges, last three edges, five corners, the end game).
+- **Anything left**: all remaining edges with the edge series, all remaining corners with Niklas - to finish a custom method.
+
+Ready-made presets: Marshall, Marshall with F2L pairs, Marshall with the beginner cross, Beginner (layer by layer), Layer by layer with the shortest cross, and Two layers then Marshall.
+The *Method* box on the page selects one, shows its steps (reorder, remove, add) and lets you press **Save as…** to keep your own in the browser (`localStorage`, key `marshall-presets`; the method
+you are working on is `marshall-method`). If a custom method's steps do not leave the cube solved the page says so. `npm test` runs the beginner presets too (every step must keep what the steps before it finished).

@@ -24,17 +24,29 @@
         <button id="random" type="button">Random scramble</button>
       </div>
       <textarea id="scramble" rows="3" spellcheck="false" placeholder="e.g. R U R' U' F2 D L2 B' …  (faces U D F B R L, with ' or 2)"></textarea>
+      <div class="method">
+        <div class="label-row">
+          <label for="preset">Method</label>
+          <span class="bt-buttons">
+            <button id="preset-save" type="button" title="Keep the method as you set it up, in this browser">Save as…</button>
+            <button id="preset-delete" type="button" hidden>Delete</button>
+          </span>
+        </div>
+        <select id="preset"></select>
+        <p id="preset-info" class="hint"></p>
+        <details class="steps-editor">
+          <summary>Steps (<span id="steps-count"></span>)</summary>
+          <ol id="steps-list" class="steps-list"></ol>
+          <select id="step-add" aria-label="Add a step"></select>
+        </details>
+      </div>
       <label class="check" for="yellow">
         <input type="checkbox" id="yellow" />
         Yellow on top from the start <span class="hint">(turn the cube over first, build the white cross on the bottom)</span>
       </label>
-      <label class="check" for="beginner">
-        <input type="checkbox" id="beginner" />
-        Beginner white cross <span class="hint">(daisy around the yellow centre, then 180° turns into the white cross)</span>
-      </label>
       <label class="check" for="f2l">
         <input type="checkbox" id="f2l" />
-        Partial F2L in steps 1–2 <span class="hint">(cross + 3 corner–edge pairs, leaving 5 edges for step 3)</span>
+        F2L pairs in Marshall's second step <span class="hint">(cross + 3 corner–edge pairs, leaving 5 edges for step 3)</span>
       </label>
       <label class="check" for="openslot">
         <input type="checkbox" id="openslot" />
@@ -111,6 +123,7 @@
         <span class="chip edge" title="F R' F' R, its inverse R' F R F' and all their turned or mirrored forms such as R U R' U'">Hedgeslammer / Sledgehammer / sexy move</span>
         <span class="chip corner" title="U R U' L' U R' U' L and its inverse">Niklas</span>
         <span class="chip f2l">F2L algorithm</span>
+        <span class="chip alg">algorithm (beginner steps)</span>
         <span class="chip setup">setup / undo turns</span>
         <span class="chip turns">plain turns</span>
         <span class="chip rotate">cube rotation</span>

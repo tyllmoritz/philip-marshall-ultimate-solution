@@ -261,6 +261,14 @@ function mirrorAlg(moves) {
 /** Table entry whose setup (and first turn) are turns of the top layer only. */
 const setupIsU = (e) => e.setup.every((m) => m[0] === "U") && e.pre.every((m) => m[0] === "U");
 
+const bits = (edges, corners) => edges.reduce((m, i) => m | (1 << i), 0) | corners.reduce((m, i) => m | (1 << (12 + i)), 0);
+const CROSS_BITS = bits([4, 5, 6, 7], []); // the white cross (DF DR DB DL in the turned-over frame)
+const MIDDLE_BITS = bits(MIDDLE, []);
+const D_CORNER_BITS = bits([], [4, 5, 6, 7]); // the white corners
+const ALL_EDGE_BITS = bits(ALL_EDGES, []);
+/** Bits of the listed pieces that are home and oriented in f. */
+const solvedBits = (f, edges, corners) => bits(edges.filter((i) => f[i] === i && f[12 + i] === 0), corners.filter((i) => f[24 + i] === i && f[32 + i] === 0));
+
 export const MARSHALL_STEPS = ["cross-optimal", "marshall-mid", "marshall-top", "marshall-last", "marshall-corners", "marshall-end"];
 
 // the algorithms of the layer-by-layer method (cross below, yellow on top; right-hand versions, the other slots by turning the cube)
@@ -529,7 +537,7 @@ export class MarshallSolver {
    * overrides that with a custom score on a full state; `first` lists entries that
    * may start a two-step lookahead (default: the cheapest table entries).
    */
-  climb(flat, table, { target, goal, count: customCount, first, pick = 0 }) {
+  climb(flat, table, { target, goal, count: customCount, first, pick = 0, keep = null, accept = null }) {
     const actions = [];
     let s = flat;
     const buf = new Uint8Array(N);
@@ -538,12 +546,13 @@ export class MarshallSolver {
     while (count(s) < goal) {
       if (++guard > 40) throw new Error("climb did not converge");
       const base = count(s);
-      const kept = solvedMask(s);
+      const kept = keep ? keep(s) : solvedMask(s);
       let best = null, bestScore = -1, bestCost = Infinity;
       const options = pick && guard === 1 ? [] : null; // alternative first moves, to compare by movecount coefficient
       for (const e of table) {
         if (best && e.cost > bestCost + 6) break;
         if (kept & ~e.mask) continue; // would disturb a finished piece
+        if (accept) { compose(s, e.flat, buf); if (!accept(buf)) continue; }
         let after;
         if (customCount) { compose(s, e.flat, buf); after = customCount(buf); }
         else after = countTargetAfter(s, e.flat, target);
@@ -882,14 +891,16 @@ export class MarshallSolver {
     };
     // step 4 is judged by what it leaves: a position the end game solves with a single Niklas counts for a lot
     const leavesSingle = (c) => (this.endgameSingle(c.state) ? 0 : 25);
+    // solved white corners stay put whichever steps made them
+    const guard = (s, ctx) => [...new Set([...ctx.corners, ...[4, 5, 6, 7].filter((c) => s[24 + c] === c && s[32 + c] === 0)])];
     const topEdges = (s, ctx) => this.rank((pick) => {
       // down to the key position - one middle-layer edge and two top-layer edges are wrong and one
       // hedgeslammer / sledgehammer / sexy move (no setup) finishes them
       let r;
       try {
-        r = this.reachKey(s, ctx.corners, edgeTarget, pick);
+        r = this.reachKey(s, guard(s, ctx), edgeTarget, pick);
       } catch {
-        r = this.finishEdges(s, ctx.corners, edgeTarget, pick); // no key position within reach: solve the edges outright
+        r = this.finishEdges(s, guard(s, ctx), edgeTarget, pick); // no key position within reach: solve the edges outright
       }
       return { parts: this.actionsToParts(r.actions, "edge"), state: r.state };
     }, 8).map((c) => ({ ...c, name: "Top Edge Pieces" }));
@@ -900,21 +911,21 @@ export class MarshallSolver {
     const builders = {
       "marshall-mid": (s) => this.step2Candidates(s, f2l),
       "marshall-top": topEdges,
-      "marshall-last": (s, ctx) => this.lastEdges(s, ctx.corners).map((c) => ({ ...c, name: "Last Three Edge Pieces" })),
+      "marshall-last": (s, ctx) => this.lastEdges(s, guard(s, ctx)).map((c) => ({ ...c, name: "Last Three Edge Pieces" })),
       "marshall-corners": cornerStage("Five Corner Pieces", 5, fiveOnASide, 10, leavesSingle),
       "marshall-end": endGame,
       "edges-all": (s, ctx) => this.rank((pick) => {
-        const r = this.finishEdges(s, ctx.corners, edgeTarget, pick);
+        const r = this.finishEdges(s, guard(s, ctx), edgeTarget, pick);
         return { parts: this.actionsToParts(r.actions, "edge"), state: r.state };
       }, 6).map((c) => ({ ...c, name: "All Edge Pieces" })),
       "corners-all": cornerStage("All Corner Pieces", 8),
       // layer by layer (the beginner method): all in the turned-over frame, white cross below, yellow on top
-      "lbl-corners": named("First Layer Corners", this.macroStage("lbl-corners", LBL.corners, { target: { edges: [], corners: [4, 5, 6, 7] }, goal: 4 })),
-      "lbl-middle": named("Second Layer Edges", this.macroStage("lbl-middle", LBL.middle, { target: { edges: MIDDLE, corners: [] }, goal: 4 })),
-      "lbl-ycross": named("Yellow Cross", this.macroStage("lbl-ycross", LBL.ycross, { target: { edges: [], corners: [] }, goal: 4, count: topOriented })),
-      "lbl-yedges": named("Yellow Edges", this.macroStage("lbl-yedges", LBL.yedges, { target: { edges: [0, 1, 2, 3], corners: [] }, goal: 4 })),
+      "lbl-corners": named("First Layer Corners", this.macroStage("lbl-corners", LBL.corners, { target: { edges: [], corners: [4, 5, 6, 7] }, goal: 4, keep: (f) => CROSS_BITS | solvedBits(f, [], [4, 5, 6, 7]) })),
+      "lbl-middle": named("Second Layer Edges", this.macroStage("lbl-middle", LBL.middle, { target: { edges: MIDDLE, corners: [] }, goal: 4, keep: (f) => CROSS_BITS | D_CORNER_BITS | solvedBits(f, MIDDLE, []) })),
+      "lbl-ycross": named("Yellow Cross", this.macroStage("lbl-ycross", LBL.ycross, { target: { edges: [], corners: [] }, goal: 4, count: topOriented, keep: () => CROSS_BITS | D_CORNER_BITS | MIDDLE_BITS })),
+      "lbl-yedges": named("Yellow Edges", this.macroStage("lbl-yedges", LBL.yedges, { target: { edges: [0, 1, 2, 3], corners: [] }, goal: 4, keep: () => CROSS_BITS | D_CORNER_BITS | MIDDLE_BITS, accept: (f) => topOriented(f) === 4 })),
       "lbl-ycorners-pos": named("Yellow Corners: Position", (s) => this.rank((pick) => {
-        const r = this.climb(s, this.cornerTable, { target: { edges: [], corners: [] }, goal: 4, count: topPos, pick });
+        const r = this.climb(s, this.cornerTable, { target: { edges: [], corners: [] }, goal: 4, count: topPos, pick, keep: () => ALL_EDGE_BITS | D_CORNER_BITS });
         return { parts: this.actionsToParts(r.actions, "corner"), state: r.state };
       }, 6)),
       "lbl-ycorners-twist": named("Yellow Corners: Twist", (s) => [this.twistCorners(s)]),
@@ -986,9 +997,9 @@ export class MarshallSolver {
   }
 
   /** Greedy macro search as a step: candidates from several first choices, best movecount coefficient first. */
-  macroStage(name, spec, { target, goal, count }) {
+  macroStage(name, spec, { target, goal, count, keep, accept }) {
     return (s) => this.rank((pick) => {
-      const r = this.climb(s, this.macroTable(name, spec), { target, goal, count, pick });
+      const r = this.climb(s, this.macroTable(name, spec), { target, goal, count, pick, keep, accept });
       return { parts: this.actionsToParts(r.actions, "alg"), state: r.state };
     }, 6);
   }
@@ -1004,9 +1015,12 @@ export class MarshallSolver {
     let st = s;
     const parts = [];
     for (let i = 0; i < 4; i++) {
+      // the corner at the front right is back, and right, only after an even number of repeats (in between other
+      // corners pass through that spot)
+      const piece = st[24];
       let k = 0, cur = st;
-      while (k < 6 && cur[32] !== 0) { cur = this.run(cur, trigger); k++; }
-      if (cur[32] !== 0) throw new Error("corner cannot be twisted");
+      while (k < 6 && !(cur[24] === piece && cur[32] === 0)) { cur = this.run(cur, trigger); k++; }
+      if (!(cur[24] === piece && cur[32] === 0)) throw new Error("corner cannot be twisted");
       if (k) parts.push({ kind: "alg", moves: Array.from({ length: k }, () => trigger).flat(), act: this.actionId++, label: `Twist the corner x${k}` });
       st = cur;
       if (i < 3) { parts.push({ kind: "turns", moves: ["U"], act: this.actionId++ }); st = this.run(st, ["U"]); }

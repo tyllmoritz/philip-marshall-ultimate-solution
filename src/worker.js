@@ -10,7 +10,7 @@ ready.then((solver) => {
 onmessage = async (e) => {
   const solver = await ready;
   try {
-    const result = solver.solve(e.data.scramble, { f2l: !!e.data.f2l, yellowTop: !!e.data.yellowTop, beginner: !!e.data.beginner, openSlot: !!e.data.openSlot, lastLayer: !!e.data.lastLayer });
+    const result = solver.solve(e.data.scramble, { f2l: !!e.data.f2l, yellowTop: !!e.data.yellowTop, steps: e.data.steps ?? null, openSlot: !!e.data.openSlot, lastLayer: !!e.data.lastLayer });
     postMessage({ type: "result", id: e.data.id, result });
   } catch (err) {
     postMessage({ type: "result", id: e.data.id, result: { error: String(err.message || err) } });
