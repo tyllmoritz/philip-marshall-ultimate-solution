@@ -207,3 +207,6 @@ Clicking a series sets it to `algo`, a step to `step`, the outer border to `all`
 
 A half turn done as two quarter turns is not a mistake, in either direction: the cube sitting at the first quarter (`L` or `L'` for an expected `L2`) is shown as still on the path.
 Only another move after that quarter turn counts as one (and then the quarter turn is part of what is taken back).
+
+The *speed* slider (¼× to 4×, remembered in the browser) sets the playback tempo; the one-rotation pauses around jumps and loops scale with it.
+Moving the loop slider restarts the animation at the start of the new loop.

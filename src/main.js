@@ -110,7 +110,9 @@ let scope = null; // {s, e}: a series that was clicked and plays on its own (loo
 let win = null; // {a, b} in ms: what the current playback loops over or stops at
 let dragging = false;
 let pin = null; // {ms, g}: a jump target; at exactly this time the move g is the current one (not the one that just ended)
-const HOLD = 1000; // one rotation of pause before and after jumps
+const HOLD = 1000; // one rotation of pause before and after jumps (at normal speed)
+const SPEEDS = [0.25, 0.5, 1, 1.5, 2, 3, 4];
+let speed = 1;
 const LOOPS = ["off", "1", "2", "3", "algo", "step", "all"]; // the slider stops, left to right
 
 // whole-turn animation lengths used by cubing.js, to turn a move index into a timestamp
@@ -250,7 +252,7 @@ function afterHold(fn) {
     holding = false;
     fn();
     updatePlayButton();
-  }, HOLD);
+  }, HOLD / speed);
 }
 
 function onTime(ts) {
@@ -593,6 +595,20 @@ $("solution").addEventListener("pointerover", (e) => {
   hot?.classList.add("hot");
 });
 $("solution").addEventListener("pointerleave", () => { hot?.classList.remove("hot"); hot = null; });
+
+// ---- speed: the cubing.js tempo (the pauses between loops follow it) ----
+function setSpeed(i) {
+  speed = SPEEDS[i] ?? 1;
+  player.tempoScale = speed;
+  $("speed").value = String(i);
+  $("speed").title = `Playback speed ${speed}×`;
+  try { localStorage.setItem("marshall-speed", String(i)); } catch {}
+}
+$("speed").addEventListener("input", () => setSpeed(+$("speed").value));
+try {
+  const saved = localStorage.getItem("marshall-speed");
+  setSpeed(saved !== null && SPEEDS[+saved] ? +saved : 2);
+} catch { setSpeed(2); }
 
 // ---- transport controls ----
 $("playpause").addEventListener("click", () => {
