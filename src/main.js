@@ -111,7 +111,7 @@ let win = null; // {a, b} in ms: what the current playback loops over or stops a
 let dragging = false;
 let pin = null; // {ms, g}: a jump target; at exactly this time the move g is the current one (not the one that just ended)
 const HOLD = 1000; // one rotation of pause before and after jumps (at normal speed)
-const SPEEDS = [0.25, 0.5, 1, 1.5, 2, 3, 4];
+const SPEEDS = [0.25, 0.5, 1, 1.5, 2, 3, 4, 6, 10];
 let speed = 1;
 const LOOPS = ["off", "1", "2", "3", "algo", "step", "all"]; // the slider stops, left to right
 
