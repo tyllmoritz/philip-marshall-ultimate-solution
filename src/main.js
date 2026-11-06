@@ -360,7 +360,7 @@ function useCustom(setup, moves) {
 
 /** What a playback loops over / stops at, from the loop mode, the clicked scope and position g. */
 function updateWindow(g = indexAt(lastTs)) {
-  if (!view) return;
+  if (!view) return null;
   const mode = loopMode();
   let range = { s: view.from, e: view.to };
   if (view.custom && !/^\d$/.test(mode)) range = range; // a list of its own (step 0): algo, step and all are all of it
@@ -374,6 +374,7 @@ function updateWindow(g = indexAt(lastTs)) {
     range = { s: Math.max(g, view.from), e };
   } else if (mode === "off" && scope) range = scope;
   win = { a: msOf(range.s), b: msOf(range.e) };
+  return { s: Math.max(range.s, view.from), e: Math.min(range.e, view.to) };
 }
 
 /** Jump there, wait one rotation, then play. */
@@ -609,8 +610,19 @@ $("playpause").addEventListener("click", () => {
 });
 $("loop").addEventListener("input", () => {
   setLoop(LOOPS[+$("loop").value]);
-  updateWindow();
-  if (view) markActive(indexAt(lastTs));
+  if (!view) return;
+  // the new loop starts from its own beginning: restart there (playing on if it was playing, else just moved)
+  const range = updateWindow();
+  if (wantPlay || holding) playFrom(msOf(range.s), range.s);
+  else {
+    cancelHold();
+    lastTs = msOf(range.s);
+    pin = { ms: lastTs, g: range.s };
+    updateWindow(range.s);
+    player.pause();
+    player.timestamp = lastTs;
+  }
+  markActive(range.s);
 });
 
 /** Jump to a series or step start; after a jump playback resumes following one rotation of pause. */
