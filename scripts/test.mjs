@@ -30,7 +30,7 @@ function checkSteps(solver, scr, r, f2l, yellowTop) {
   const commutator = (m, trimmedOk) => (m.length === 3 && trimmedOk && m[2] === inv(m[0]) && m[0][0] !== m[1][0] && !m[0].endsWith("2") && !m[1].endsWith("2")) || m.length === 4 && m[2] === inv(m[0]) && m[3] === inv(m[1]) && m[0][0] !== m[1][0] && !m[0].endsWith("2") && !m[1].endsWith("2");
   const niklas = ["U R U' L' U R' U' L", "L' U R U' L U R' U'"];
   for (const p of r.steps.flatMap((st, si) => st.parts.map((x) => ({ ...x, step: si })))) {
-    if (p.kind === "edge" && !commutator(p.moves, p.step === 1)) return "edge series is not a commutator: " + p.moves.join(" ");
+    if (p.kind === "edge" && !commutator(p.moves, true)) return "edge series is not a commutator: " + p.moves.join(" ");
     if (p.kind === "corner" && !niklas.includes(p.moves.join(" "))) return "series not in front/top form: " + p.moves.join(" ");
   }
   const has = (m, bits) => (m & bits) === bits;

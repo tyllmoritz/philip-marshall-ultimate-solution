@@ -213,3 +213,9 @@ Moving the loop slider restarts the animation at the start of the new loop.
 
 With partial F2L the text above the cubes names the pair an algorithm works on by its two colours: "F2L algorithm · inserts the green-red pair" (or "frees the ... pair" for the turns
 that get a pair out of its slot first). Colours assume the usual scheme (white top, green front, red right).
+
+## Optional U turns of the edge series
+
+A top-layer turn at either end of an edge series (the `U'` of `U' L U L'`, the `U'` of `R U R' U'`) only turns the layer the series is not about, so it is optional: it cancels against a neighbouring
+`U` turn (an aligning turn before it or after it, or the end of the previous series) instead of being done twice - `U2 | U' L U L' | U2` becomes `U | L U L' | U2`. What is left of the series is then a three-move
+chip (`L U L'`). The cost of this is checked by the movecount coefficient like everything else.

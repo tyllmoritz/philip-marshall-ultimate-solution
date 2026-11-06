@@ -114,20 +114,33 @@ const KIND_RANK = { edge: 3, corner: 3, turns: 2, setup: 1, undo: 1 };
  */
 export function optimizeSteps(steps) {
   const stack = [];
-  steps.forEach((step, si) => step.parts.forEach((part) => part.moves.forEach((m) => {
+  steps.forEach((step, si) => step.parts.forEach((part) => part.moves.forEach((m, mi, arr) => {
     const tok = { m, kind: part.kind, act: part.act, step: si, pair: part.pair, frees: part.frees };
+    // a top-layer turn at either end of an edge series is optional (it only turns the layer the series is not about):
+    // it may cancel against a neighbouring turn of that layer instead of being done twice
+    const optional = part.kind === "edge" && arr.length === 4 && m[0] === "U" && (mi === 0 || mi === 3);
+    tok.optional = optional;
     // series stay exactly as written (front/top) and rotations are barriers, so nothing cancels into them
-    const solid = part.kind === "edge" || part.kind === "corner" || part.kind === "rotate";
+    const solid = (part.kind === "edge" || part.kind === "corner" || part.kind === "rotate") && !optional;
     tok.solid = solid;
     if (solid) { stack.push(tok); return; }
     for (let j = stack.length - 1; j >= 0; j--) {
       if (stack[j].step !== si || stack[j].solid) break; // never move turns between steps: each step must end in its target state
       const f = stack[j].m[0];
       if (f === m[0]) {
-        const q = (QUARTERS(stack[j].m) + QUARTERS(m)) % 4;
-        const kind = KIND_RANK[stack[j].kind] > KIND_RANK[tok.kind] ? stack[j].kind : tok.kind;
+        const prev = stack[j];
+        const q = (QUARTERS(prev.m) + QUARTERS(m)) % 4;
+        let kind, act;
+        if (prev.optional !== tok.optional) { // what is left of an optional series turn is a plain turn
+          const other = prev.optional ? tok : prev;
+          kind = other.kind;
+          act = other.act;
+        } else {
+          kind = KIND_RANK[prev.kind] > KIND_RANK[tok.kind] ? prev.kind : tok.kind;
+          act = kind === prev.kind ? prev.act : tok.act;
+        }
         if (q === 0) stack.splice(j, 1);
-        else stack[j] = { ...tok, m: m[0] + SUFFIX[q], kind, act: kind === stack[j].kind ? stack[j].act : tok.act };
+        else stack[j] = { ...tok, m: m[0] + SUFFIX[q], kind, act, optional: false };
         return;
       }
       if (OPPOSITE[f] !== m[0]) break;
