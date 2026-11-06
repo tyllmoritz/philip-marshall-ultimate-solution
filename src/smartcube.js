@@ -28,8 +28,8 @@ function samePieces(a, b) {
  * The solution as the cube itself sees it: whole-cube rotations are not moves of a smart cube
  * (its centres never move), they only change which cube face a following turn lands on.
  */
-export function cubeFrameMoves(solution) {
-  const rotations = [];
+export function cubeFrameMoves(solution, setupRotation = []) {
+  const rotations = [...setupRotation];
   const out = [];
   for (const m of solution) {
     if (isRotation(m)) { rotations.push(m); continue; }
@@ -138,7 +138,7 @@ export function initSmartCube(api) {
     plan = null;
     const { current, layout } = api.get();
     if (!puzzle || !kpuzzle || !current?.result || !layout) return;
-    const cube = cubeFrameMoves(current.result.solution);
+    const cube = cubeFrameMoves(current.result.solution, current.result.setupRotation);
     // number of cube-frame moves before solution move g
     const cubeBefore = [0];
     current.result.solution.forEach((m) => cubeBefore.push(cubeBefore[cubeBefore.length - 1] + (isRotation(m) ? 0 : 1)));
@@ -174,6 +174,7 @@ export function initSmartCube(api) {
   let resetToken = 0;
 
   const solution = () => api.get().current?.result?.solution ?? [];
+  const pre = () => api.get().current?.result?.setupRotation ?? []; // how the cube is held before the first move
   const unit = () => plan?.units[algIndex];
 
   /** Rotate the live cube like the solution does, up to the next move of the current algorithm. */
@@ -190,7 +191,7 @@ export function initSmartCube(api) {
   function alignLive() {
     const sol = solution(), u = unit();
     if (!u) return;
-    const need = sol.slice(0, u.s).filter(isRotation);
+    const need = [...pre(), ...sol.slice(0, u.s).filter(isRotation)];
     let j = u.s;
     for (; j < u.e && isRotation(sol[j]); j++) need.push(sol[j]);
     for (const t of need.slice(displayRot.length)) {
@@ -217,7 +218,7 @@ export function initSmartCube(api) {
   /** The orientation the solution starts in (yellow on top starts with x2): step 0 is shown in it too, on both cubes. */
   function leadFrame() {
     const sol = solution();
-    const lead = [];
+    const lead = [...pre()];
     for (let i = 0; i < sol.length && isRotation(sol[i]); i++) lead.push(sol[i]);
     const frame = lead.length ? rotationOf(lead) : null;
     const toView = (m) => (frame ? Object.keys(frame).find((p) => frame[p] === m[0]) + m.slice(1) : m);
@@ -327,7 +328,7 @@ export function initSmartCube(api) {
           // which the state comparison above has already recognised), then carry on from where the cube left it
           const at = lastOn?.g ?? u.s;
           const sol = solution();
-          const rotations = sol.slice(0, at).filter(isRotation);
+          const rotations = [...pre(), ...sol.slice(0, at).filter(isRotation)];
           const frame = rotations.length ? rotationOf(rotations) : null; // what the shown orientation was at that point
           const toView = (m) => (frame ? Object.keys(frame).find((p) => frame[p] === m[0]) + m.slice(1) : m);
           const undo = invertAlg(mergeTurns(recordedCube)).map(toView);
@@ -339,7 +340,7 @@ export function initSmartCube(api) {
           const count = (from) => sol.slice(from, u.e).filter((m) => !isRotation(m)).length;
           if (fix && fix.moves.length + count(fix.g) < undo.length + count(at)) { lead = fix.moves.map(toView); resume = fix.g; }
           const moves = [...lead, ...sol.slice(resume, u.e)];
-          const setup = [...api.get().current.scramble, ...sol.slice(0, at), ...recordedCube.map(toView)].join(" ");
+          const setup = [...api.get().current.scramble, ...pre(), ...sol.slice(0, at), ...recordedCube.map(toView)].join(" ");
           custom = { setup, moves };
           info = { ...base, groups: [{ kind: "fix", moves: lead }, ...api.unitGroups(algIndex, resume)] };
         }
@@ -620,6 +621,6 @@ export function initSmartCube(api) {
     $("bt-connect").title = "Web Bluetooth is not available in this browser (try Chrome or Edge)";
   }
   // test hook: connect with a stand-in puzzle
-  window.__marshallSmart = { connect, cubeFrameMoves, get live() { return live; }, get kpuzzle() { return kpuzzle; }, ready: cube3x3x3.kpuzzle().then((k) => (kpuzzle ??= k)) };
+  window.__marshallSmart = { connect, cubeFrameMoves, preRotation: () => pre(), get live() { return live; }, get kpuzzle() { return kpuzzle; }, ready: cube3x3x3.kpuzzle().then((k) => (kpuzzle ??= k)) };
   return { onSolution: computePlan, release() { following = false; } };
 }

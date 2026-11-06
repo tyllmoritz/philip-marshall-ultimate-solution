@@ -319,13 +319,13 @@ function useSolution() {
   for (const m of result.solution) cum.push(cum[cum.length - 1] + moveMs(m));
   view = { from: 0, to: result.solution.length, moves: result.solution, cum };
   const alg = annotate(result.steps, 0, result.solution.length);
-  player.experimentalSetupAlg = scramble.join(" ");
+  player.experimentalSetupAlg = [...scramble, ...(result.setupRotation ?? [])].join(" ");
   player.alg = alg;
   player.timestamp = "start";
   clearHighlight();
   $("progress").max = cum[cum.length - 1];
   $("progress").value = 0;
-  $("twizzle").href = "https://alpha.twizzle.net/edit/?" + new URLSearchParams({ alg, "setup-alg": scramble.join(" ") });
+  $("twizzle").href = "https://alpha.twizzle.net/edit/?" + new URLSearchParams({ alg, "setup-alg": [...scramble, ...(result.setupRotation ?? [])].join(" ") });
   $("twizzle").classList.remove("disabled");
 }
 
@@ -340,7 +340,7 @@ function useRange(from, to) {
   for (const m of moves) cum.push(cum[cum.length - 1] + moveMs(m));
   view = { from, to, moves, cum };
   scope = null;
-  player.experimentalSetupAlg = [...scramble, ...result.solution.slice(0, from)].join(" ");
+  player.experimentalSetupAlg = [...scramble, ...(result.setupRotation ?? []), ...result.solution.slice(0, from)].join(" ");
   player.alg = annotate(result.steps, from, to);
   player.timestamp = "start";
   clearHighlight();

@@ -227,3 +227,8 @@ chip (`L U L'`). The cost of this is checked by the movecount coefficient like e
 - **Last 3 corners on the last layer**: step 4 ends only when all unsolved corners are in the top layer, instead of on any one side of the cube.
 
 Both are remembered in the browser and re-solve on change.
+
+## Rotations at the ends
+
+Rotations before the first move of the solution (the `x2` of "Yellow on top from the start") are part of the setup - how the cube is held to begin with - and the player's setup alg and the Twizzle link include them.
+Rotations after the last move are dropped: a solved cube can be put down any way up (the result still carries the rotation that would undo them, which the tests use).

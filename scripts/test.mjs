@@ -1,7 +1,7 @@
 import { cube3x3x3 } from "cubing/puzzles";
 import { MarshallSolver } from "../src/engine/solver.js";
 import { buildMoveTables, FACES } from "../src/engine/cube.js";
-import { compose, flatSolved, flatFromMove } from "../src/engine/flat.js";
+import { compose, flatSolved, flatFromMove, rotationOf, rotationWord, invertRotationWord } from "../src/engine/flat.js";
 import { solvedMask, unsolvedOnOneSide } from "../src/engine/solver.js";
 const kp = await cube3x3x3.kpuzzle();
 let t = performance.now();
@@ -17,11 +17,15 @@ function checkSteps(solver, scr, r, f2l, yellowTop, opts = {}) {
     return flatFromMove({ ep: Uint8Array.from(t.EDGES.permutation), eo: Uint8Array.from(t.EDGES.orientationDelta), cp: Uint8Array.from(t.CORNERS.permutation), co: Uint8Array.from(t.CORNERS.orientationDelta) });
   };
   const masks = [];
-  const played = [...scr];
+  const played = [...scr, ...r.setupRotation];
+  let stepNo = 0;
   for (const step of r.steps) {
     played.push(...step.parts.flatMap((p) => p.moves));
+    const lastStep = ++stepNo === r.steps.length;
     // from step 2 on the cube is turned over (x2); turn it back to judge piece positions
-    const f = flatOf(played.join(" ") + (masks.length >= (yellowTop ? 0 : 1) && masks.length < 5 ? " x2" : ""));
+    // judge piece positions in the cube's original orientation: undo whatever the rotations so far have turned it by
+    const turned = played.filter((m) => /^[xyz]/.test(m));
+    const f = flatOf(played.join(" ") + " " + invertRotationWord(rotationWord(rotationOf(turned))).join(" "));
     masks.push(solvedMask(f));
     if (masks.length === 5 && !unsolvedOnOneSide(f)) return "step 4: remaining corners are not on one side";
     // with the option the last corners are in the last layer: D corners 4-7 once the cube is back in its original orientation
@@ -78,7 +82,7 @@ for (let i = 0; i < n; i++) {
   const dt = performance.now() - t;
   if (r.error) { fail++; console.log("FAIL", r.error, scr.join(" ")); continue; }
   // verify with cubing
-  const alg = scr.join(" ") + " " + r.solution.join(" ");
+  const alg = scr.join(" ") + " " + r.setupRotation.join(" ") + " " + r.solution.join(" ") + " " + r.restoreRotation.join(" ");
   const td = kp.algToTransformation(alg).transformationData; const ok = td.EDGES.permutation.every((p,i)=>p===i) && td.EDGES.orientationDelta.every(o=>!o) && td.CORNERS.permutation.every((p,i)=>p===i) && td.CORNERS.orientationDelta.every(o=>!o);
   if (!ok) { fail++; console.log("WRONG", scr.join(" ")); }
   // every step must leave the cube in its target state

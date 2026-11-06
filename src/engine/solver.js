@@ -165,6 +165,31 @@ export function optimizeSteps(steps) {
 }
 
 /** Back-to-back rotations (end of one series, start of the next) collapse into one. */
+/**
+ * Rotations before the first move belong to the setup (how the cube is held to begin with), rotations after the last
+ * move are dropped (a solved cube can be put down any way up). Returns the steps without them, the setup rotation and
+ * the rotation that would put the cube back in its first orientation (for checking, not shown).
+ */
+function stripEnds(steps) {
+  const setup = [];
+  for (const step of steps) {
+    while (step.parts.length && step.parts[0].kind === "rotate") setup.push(...step.parts.shift().moves);
+    if (step.parts.length) break;
+  }
+  for (let i = steps.length - 1; i >= 0; i--) {
+    const parts = steps[i].parts;
+    while (parts.length && parts[parts.length - 1].kind === "rotate") parts.pop();
+    if (parts.length) break;
+  }
+  const rotations = steps.flatMap((st) => st.parts.filter((p) => p.kind === "rotate").flatMap((p) => p.moves));
+  const net = rotationOf([...setup, ...rotations]);
+  return {
+    steps: steps.map((st) => ({ ...st, count: st.parts.reduce((n, p) => n + (p.kind === "rotate" ? 0 : p.moves.length), 0) })),
+    setupRotation: rotationWord(rotationOf(setup)),
+    restoreRotation: invertRotationWord(rotationWord(net)),
+  };
+}
+
 function mergeRotations(stack) {
   // a y rotation commutes with U and D turns, so y2 U y2 is just U
   const isY = (t) => t.kind === "rotate" && t.m[0] === "y";
@@ -194,8 +219,8 @@ function mergeRotations(stack) {
 }
 
 /**
- * After the white cross the cube is turned over (x2) so that yellow is on top for the rest of
- * the solve; steps 2-5 were solved in that orientation, and the last step turns it back.
+ * After the white cross the cube is turned over (x2) so that yellow is on top for the rest of the solve
+ * (steps 2-5 were solved in that orientation).
  */
 function flipAfterCross(steps, yellowTop = false) {
   const addRotation = (parts, at, note) => {
@@ -213,7 +238,6 @@ function flipAfterCross(steps, yellowTop = false) {
   return steps.map((step, i) => {
     let parts = step.parts;
     if (i === (yellowTop ? 0 : 1)) parts = addRotation(parts, 0, "Turn the cube over: yellow on top");
-    if (i === steps.length - 1) parts = addRotation(parts, 1, "Turn the cube back: white on top");
     return { ...step, parts };
   });
 }
@@ -872,9 +896,13 @@ export class MarshallSolver {
       { name: cross.name ?? "The Cross", parts: cross.parts ?? (cross.moves.length ? [{ kind: "turns", moves: cross.moves }] : []) },
       ...chosen.map((c) => ({ name: c.name, parts: c.parts })),
     ];
-    const steps = flipAfterCross(optimizeSteps(rawSteps), yellowTop).map((st) => ({ ...st, mcc: movecount(st.parts.flatMap((p) => p.moves)) }));
+    const stripped = stripEnds(flipAfterCross(optimizeSteps(rawSteps), yellowTop));
+    const steps = stripped.steps.map((st) => ({ ...st, mcc: movecount(st.parts.flatMap((p) => p.moves)) }));
     const all = steps.flatMap((st) => st.parts.flatMap((p) => p.moves));
-    return { steps, total: steps.reduce((n, st) => n + st.count, 0), solution: all, mcc: movecount(all), f2lPairs: chosen[0].pairs };
+    return {
+      steps, total: steps.reduce((n, st) => n + st.count, 0), solution: all, mcc: movecount(all), f2lPairs: chosen[0].pairs,
+      setupRotation: stripped.setupRotation, restoreRotation: stripped.restoreRotation,
+    };
   }
 
   /** Corner-preserving finish of the five remaining edges after the pairs are in. */
