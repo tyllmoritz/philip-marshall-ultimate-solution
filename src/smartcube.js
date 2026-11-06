@@ -259,7 +259,7 @@ export function initSmartCube(api) {
     // (the solution may start with rotations, so "at the scramble" means: no turn of the solution made yet)
     const atScramble = g >= 0 && plan.count(g) === 0;
     if (stage === 0 && g >= 0 && !atScramble) stage = 1; // already solving
-    let info, range = null, custom = null;
+    let info, range = null, custom = null, did = null;
     pendingNow = false;
     if (stage === 0) {
       if (atScramble && scrPath) {
@@ -292,6 +292,7 @@ export function initSmartCube(api) {
           const at = lastOn?.k ?? 0;
           const { lead, toView } = leadFrame();
           const undo = invertAlg(mergeTurns(recordedCube)).map(toView);
+          did = recordedCube.map(toView); // in the orientation the list is shown in, not the live cube's
           const moves = [...undo, ...scrPath.moves.slice(at).map(toView)];
           custom = { setup: [scrPath.start, ...scrPath.moves.slice(0, at), ...recordedCube, ...lead].join(" "), moves };
           info = { title: "0. Scramble", sub: "from your cube to the scramble", groups: [{ kind: "fix", moves: undo }, { kind: "turns", moves: scrPath.moves.slice(at).map(toView) }] };
@@ -330,6 +331,7 @@ export function initSmartCube(api) {
           const frame = rotations.length ? rotationOf(rotations) : null; // what the shown orientation was at that point
           const toView = (m) => (frame ? Object.keys(frame).find((p) => frame[p] === m[0]) + m.slice(1) : m);
           const undo = invertAlg(mergeTurns(recordedCube)).map(toView);
+          did = recordedCube.map(toView); // in the orientation the algorithm is shown in, not the live cube's
           let lead = undo, resume = at;
           // maybe one or two turns lead to a state further on the path (a different way to the same state): then that
           // is shorter than taking everything back
@@ -357,7 +359,8 @@ export function initSmartCube(api) {
     }
     if (stage === 1 || (stage === 0 && atScramble)) offPath = stage === 1 ? offPath : false;
     if (!offPath && !pendingNow) { recorded = []; recordedCube = []; }
-    info.did = offPath && recorded.length ? `You did: ${recorded.join(" ")}` : "";
+    const shown = did ?? recorded;
+    info.did = offPath && shown.length ? `You did: ${shown.join(" ")}` : "";
     $("bt-take").hidden = !offPath;
     const key = `${stage}:${algIndex}:${range ? range.from : "p"}:${offPath}:${custom ? custom.setup + "|" + custom.moves.join(" ") : ""}`;
     api.setInfo(info);
