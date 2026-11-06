@@ -408,6 +408,8 @@ const options = () => ({
   f2l: $("f2l").checked,
   yellowTop: $("yellow").checked || $("beginner").checked,
   beginner: $("beginner").checked,
+  openSlot: $("openslot").checked,
+  lastLayer: $("lastlayer").checked,
 });
 
 /** Solve whatever the scramble field and options say now; any calculation still running is aborted. */
@@ -746,7 +748,7 @@ const smart = initSmartCube({
   },
 });
 
-const OPTION_IDS = ["f2l", "yellow", "beginner"];
+const OPTION_IDS = ["f2l", "yellow", "beginner", "openslot", "lastlayer"];
 const syncOptions = () => {
   // the beginner cross is built from the yellow side, so it implies yellow on top
   if ($("beginner").checked) $("yellow").checked = true;

@@ -219,3 +219,11 @@ that get a pair out of its slot first). Colours assume the usual scheme (white t
 A top-layer turn at either end of an edge series (the `U'` of `U' L U L'`, the `U'` of `R U R' U'`) only turns the layer the series is not about, so it is optional: it cancels against a neighbouring
 `U` turn (an aligning turn before it or after it, or the end of the previous series) instead of being done twice - `U2 | U' L U L' | U2` becomes `U | L U L' | U2`. What is left of the series is then a three-move
 chip (`L U L'`). The cost of this is checked by the movecount coefficient like everything else.
+
+## Two more options
+
+- **Edge swaps at the open slot**: steps 3 and 4 use only edge series that are set up with turns of the top layer (`U`, `U'`, `U2`) - nothing else is turned, so the pairs/edges already placed
+  stay in place and the series work at the open slot's location. (It costs a few moves; the tests check that no other face is turned there.)
+- **Last 3 corners on the last layer**: step 4 ends only when all unsolved corners are in the top layer, instead of on any one side of the cube.
+
+Both are remembered in the browser and re-solve on change.

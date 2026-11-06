@@ -10,7 +10,7 @@ console.log("init ms", (performance.now() - t) | 0, "tables", solver.edgeTable.l
 const EDGE_BITS = (list) => list.reduce((m, i) => m | (1 << i), 0);
 const CORNER_BITS = (list) => list.reduce((m, i) => m | (1 << (12 + i)), 0);
 const PAIR = { 8: 0, 9: 3, 10: 1, 11: 2 }; // middle edge -> its corner next to the cross
-function checkSteps(solver, scr, r, f2l, yellowTop) {
+function checkSteps(solver, scr, r, f2l, yellowTop, opts = {}) {
   // replay through cubing itself so x/y/z rotations are interpreted independently of the solver
   const flatOf = (alg) => {
     const t = kp.algToTransformation(alg).transformationData;
@@ -24,7 +24,10 @@ function checkSteps(solver, scr, r, f2l, yellowTop) {
     const f = flatOf(played.join(" ") + (masks.length >= (yellowTop ? 0 : 1) && masks.length < 5 ? " x2" : ""));
     masks.push(solvedMask(f));
     if (masks.length === 5 && !unsolvedOnOneSide(f)) return "step 4: remaining corners are not on one side";
+    // with the option the last corners are in the last layer: D corners 4-7 once the cube is back in its original orientation
+    if (masks.length === 5 && opts.lastLayer) { for (let i = 0; i < 8; i++) if (i < 4 && !(f[24 + i] === i && f[32 + i] === 0)) return "step 4: an unsolved corner is outside the last layer"; }
   }
+  if (opts.openSlot) for (const si of [2, 3]) for (const p of r.steps[si].parts) if ((p.kind === "setup" || p.kind === "turns") && p.moves.some((m) => m[0] !== "U")) return "open slot: a setup turns more than U in step " + (si + 1) + ": " + p.moves.join(" ");
   const inv = (m) => (m.endsWith("2") ? m : m.endsWith("'") ? m[0] : m + "'");
   // an edge series is a commutator X Y X' Y' of two adjacent faces (any orientation, mirrored or not)
   const commutator = (m, trimmedOk) => (m.length === 3 && trimmedOk && m[2] === inv(m[0]) && m[0][0] !== m[1][0] && !m[0].endsWith("2") && !m[1].endsWith("2")) || m.length === 4 && m[2] === inv(m[0]) && m[3] === inv(m[1]) && m[0][0] !== m[1][0] && !m[0].endsWith("2") && !m[1].endsWith("2");
@@ -61,6 +64,8 @@ const mode = process.argv[3] ?? "";
 const f2l = mode.includes("f2l");
 const yellowTop = mode.includes("yellow") || mode.includes("beginner");
 const beginner = mode.includes("beginner");
+const openSlot = mode.includes("open");
+const lastLayer = mode.includes("layer");
 let f2lUsed = 0;
 const totals = [];
 let fail = 0;
@@ -69,7 +74,7 @@ for (let i = 0; i < n; i++) {
   let last = "";
   for (let j = 0; j < 30; j++) { let f; do f = FACES[(Math.random() * 6) | 0]; while (f === last); last = f; scr.push(f + ["", "2", "'"][(Math.random() * 3) | 0]); }
   t = performance.now();
-  const r = solver.solve(scr, { f2l, yellowTop, beginner });
+  const r = solver.solve(scr, { f2l, yellowTop, beginner, openSlot, lastLayer });
   const dt = performance.now() - t;
   if (r.error) { fail++; console.log("FAIL", r.error, scr.join(" ")); continue; }
   // verify with cubing
@@ -77,7 +82,7 @@ for (let i = 0; i < n; i++) {
   const td = kp.algToTransformation(alg).transformationData; const ok = td.EDGES.permutation.every((p,i)=>p===i) && td.EDGES.orientationDelta.every(o=>!o) && td.CORNERS.permutation.every((p,i)=>p===i) && td.CORNERS.orientationDelta.every(o=>!o);
   if (!ok) { fail++; console.log("WRONG", scr.join(" ")); }
   // every step must leave the cube in its target state
-  const problems = checkSteps(solver, scr, r, f2l, yellowTop);
+  const problems = checkSteps(solver, scr, r, f2l, yellowTop, { openSlot, lastLayer });
   if (problems) { fail++; console.log("STEP TARGET", problems, scr.join(" ")); continue; }
   totals.push(r.total);
   if (r.f2lPairs) f2lUsed++;

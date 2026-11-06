@@ -26,9 +26,9 @@ const ALL_EDGES = [...Array(12).keys()];
 const ALL_CORNERS = [...Array(8).keys()];
 const CORNER_FACES = [[0, 1, 2, 3], [4, 5, 6, 7], [0, 3, 4, 5], [1, 2, 6, 7], [0, 1, 4, 7], [2, 3, 5, 6]]; // U D F B R L
 /** Corners that are not home yet all lie on one face (so one corner series can finish them). */
-export function unsolvedOnOneSide(f) {
+export function unsolvedOnOneSide(f, lastLayerOnly = false) {
   const open = ALL_CORNERS.filter((i) => !(f[24 + i] === i && f[32 + i] === 0));
-  return CORNER_FACES.some((face) => open.every((i) => face.includes(i)));
+  return (lastLayerOnly ? CORNER_FACES.slice(0, 1) : CORNER_FACES).some((face) => open.every((i) => face.includes(i)));
 }
 
 /** Bit i (edges 0-11) / 12+i (corners): that piece sits at home, correctly oriented. */
@@ -131,7 +131,10 @@ export function optimizeSteps(steps) {
         const prev = stack[j];
         const q = (QUARTERS(prev.m) + QUARTERS(m)) % 4;
         let kind, act;
-        if (prev.optional !== tok.optional) { // what is left of an optional series turn is a plain turn
+        if (prev.optional && tok.optional) { // two optional turns of neighbouring series meet: a plain turn between them
+          kind = "turns";
+          act = tok.act;
+        } else if (prev.optional !== tok.optional) { // what is left of an optional series turn is a plain turn
           const other = prev.optional ? tok : prev;
           kind = other.kind;
           act = other.act;
@@ -229,6 +232,9 @@ function mirrorAlg(moves) {
     return f + (m.length === 1 ? "'" : m[1] === "2" ? "2" : "");
   });
 }
+
+/** Table entry whose setup (and first turn) are turns of the top layer only. */
+const setupIsU = (e) => e.setup.every((m) => m[0] === "U") && e.pre.every((m) => m[0] === "U");
 
 const OPPOSITE = { U: "D", D: "U", F: "B", B: "F", R: "L", L: "R" };
 function setupSequences(maxLen) {
@@ -807,13 +813,14 @@ export class MarshallSolver {
     return all.length ? all : this.rank(plain);
   }
 
-  solveFrom(cross, { f2l = false, yellowTop = false } = {}) {
+  solveFrom(cross, { f2l = false, yellowTop = false, openSlot = false, lastLayer = false } = {}) {
+    this.uOnly = openSlot; // edge series are set up with U turns only (they work at the open slot)
     if (!cross.parts) this.actionId = 0;
     const edgeTarget = { target: { edges: ALL_EDGES, corners: [] }, goal: 12 };
     // step 4 ends with at least 5 corners home and the rest (2 or 3) on one side, ready for the end game
     const fiveOnASide = (f) => {
       const n = this.solvedCorners(f, ALL_CORNERS).length;
-      return n >= 5 && unsolvedOnOneSide(f) ? n : Math.min(n, 4);
+      return n >= 5 && unsolvedOnOneSide(f, lastLayer) ? n : Math.min(n, 4);
     };
     const cornerStage = (name, goal, count, picks = 6, penalty = null) => (s) => this.rank((pick) => {
       const r = this.climb(s, this.cornerTable, { target: { edges: [], corners: ALL_CORNERS }, goal, count, pick });
@@ -874,7 +881,8 @@ export class MarshallSolver {
   finishEdges(state, corners, edgeTarget, pick = 0, count = null) {
     const need = corners.reduce((m, i) => m | (1 << (12 + i)), 0);
     const source = this.edgeParity(state) ? this.edgeTable.withOdd : this.edgeTable;
-    const keep = need ? source.filter((e) => !(need & ~e.mask)) : source;
+    let keep = need ? source.filter((e) => !(need & ~e.mask)) : source;
+    if (this.uOnly) keep = keep.filter(setupIsU);
     return this.climb(state, keep, { ...edgeTarget, pick, ...(count ? { count } : {}) });
   }
 
@@ -884,7 +892,7 @@ export class MarshallSolver {
    */
   singleFinishers(f, need) {
     const odd = this.edgeParity(f);
-    const key = odd + ":" + need;
+    const key = odd + ":" + need + ":" + !!this.uOnly;
     this._finisherIndex ??= new Map();
     let index = this._finisherIndex.get(key);
     const cfg = { n: 12, p: 0, o: 12, mod: 2 };
@@ -892,7 +900,7 @@ export class MarshallSolver {
       const source = odd ? this.edgeTable.withOdd : this.edgeTable;
       index = new Map();
       for (const e of source) {
-        if (!e.series.length || (need & ~e.mask)) continue;
+        if (!e.series.length || (need & ~e.mask) || (this.uOnly && !setupIsU(e))) continue;
         const h = hashPart(e.flat, cfg);
         if (!index.has(h)) index.set(h, []);
         index.get(h).push(e);
@@ -924,7 +932,8 @@ export class MarshallSolver {
   reachKey(state, corners, edgeTarget, pick = 0) {
     const need = corners.reduce((m, i) => m | (1 << (12 + i)), 0);
     const source = this.edgeParity(state) ? this.edgeTable.withOdd : this.edgeTable;
-    const table = need ? source.filter((e) => !(need & ~e.mask)) : source;
+    let table = need ? source.filter((e) => !(need & ~e.mask)) : source;
+    if (this.uOnly) table = table.filter(setupIsU);
     const cfg = { n: 12, p: 0, o: 12, mod: 2 };
     const solved = (f) => { for (let i = 0; i < 12; i++) if (f[i] !== i || f[12 + i] !== 0) return false; return true; };
     const count = this.keyCount(need);
@@ -1011,7 +1020,9 @@ export class MarshallSolver {
   nicest(a) {
     if (!a.alts || a.alts.length < 2) return a;
     let best = null, bestScore = Infinity;
-    for (const alt of a.alts) {
+    // an action that was chosen for its U-only setup keeps to such spellings
+    const alts = this.uOnly && a.series.length && setupIsU(a) ? a.alts.filter((alt) => alt.setup.every((m) => m[0] === "U")) : a.alts;
+    for (const alt of alts) {
       const score = movecount([...a.pre, ...this.inFrame(alt)]);
       if (score < bestScore) { best = alt; bestScore = score; }
     }
