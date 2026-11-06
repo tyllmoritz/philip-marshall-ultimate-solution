@@ -70,7 +70,22 @@ function pathShortcut(plan, pattern, from, to) {
   return null;
 }
 
+// The cube's Bluetooth device, remembered when the user picks it, so a lost connection can be re-established
+// without asking again (the library normally opens the picker on every connect).
+let lastDevice = null, reuseDevice = null;
+function rememberDevices() {
+  const bt = navigator.bluetooth;
+  if (!bt || bt.__marshallWrapped) return;
+  const original = bt.requestDevice.bind(bt);
+  bt.requestDevice = async (options) => {
+    if (reuseDevice) return reuseDevice;
+    return (lastDevice = await original(options));
+  };
+  bt.__marshallWrapped = true;
+}
+
 export function initSmartCube(api) {
+  rememberDevices();
   let kpuzzle = null;
   let puzzle = null; // connected BluetoothPuzzle
   let pattern = null; // what the real cube looks like now
@@ -474,23 +489,33 @@ export function initSmartCube(api) {
     };
   }
 
+  let lastProvider = null;
+  let wantConnected = false;
+  let reconnecting = false;
+
+  /** Hook the cube's events up (after both cubes exist, so no move can arrive too early and be lost). */
+  function attach(p) {
+    p.addAlgLeafListener((e) => onMove(e).catch((err) => status("Could not show a move: " + err.message, true)));
+    p.onState?.(onCubeState);
+    p.onLost?.(() => { if (wantConnected && p === puzzle) reconnect(); });
+    $("bt-reread").hidden = !p.readState;
+    $("bt-reset").hidden = !p.resetToSolved;
+  }
+
   async function connect(provider) {
     $("bt-connect").disabled = true;
     status("Connecting…");
     try {
       kpuzzle ??= await cube3x3x3.kpuzzle();
-      puzzle = await (provider ?? connectAnyCube)();
+      lastProvider = provider ?? connectAnyCube;
+      puzzle = await lastProvider();
+      wantConnected = true;
       pattern = await puzzle.getPattern();
       $("bt").hidden = false;
       live ??= makePlayer("bt-live");
       $("bt-live-wrap").hidden = false;
       if (!cameraLinked) { linkCameras(live, api.player); cameraLinked = true; }
-      // listeners go on only now that both cubes exist, so no move can arrive too early and be lost
-      puzzle.addAlgLeafListener((e) => onMove(e).catch((err) => status("Could not show a move: " + err.message, true)));
-      puzzle.onState?.(onCubeState);
-      puzzle.onLost?.(() => { status("Connection to the cube was lost - press Connect again.", true); disconnect(false); });
-      $("bt-reread").hidden = !puzzle.readState;
-      $("bt-reset").hidden = !puzzle.resetToSolved;
+      attach(puzzle);
       liveBase = await patternToScramble(pattern);
       live.alg = "";
       live.experimentalSetupAlg = liveBase;
@@ -507,7 +532,48 @@ export function initSmartCube(api) {
     }
   }
 
+  /**
+   * The connection dropped (it does, e.g. when a scramble is turned faster than the cube's notifications get through):
+   * connect to the same device again, a few times, and carry on from the cube's own state.
+   */
+  async function reconnect() {
+    if (reconnecting) return;
+    reconnecting = true;
+    const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    try { puzzle?.disconnect(); } catch {}
+    for (let attempt = 1; attempt <= 4 && wantConnected; attempt++) {
+      status(`Connection lost - reconnecting (${attempt}/4)…`, true);
+      await sleep(1200 * attempt);
+      if (!wantConnected) break;
+      try {
+        reuseDevice = lastDevice;
+        const fresh = await lastProvider();
+        reuseDevice = null;
+        puzzle = fresh;
+        pattern = await fresh.getPattern();
+        attach(fresh);
+        recorded = [];
+        recordedCube = [];
+        lastMoveAt = 0;
+        resetLive();
+        shownKey = "";
+        showAlgorithm();
+        status("Reconnected.");
+        reconnecting = false;
+        return;
+      } catch {
+        reuseDevice = null;
+      }
+    }
+    reconnecting = false;
+    if (wantConnected) {
+      status("Connection to the cube was lost - press Connect again.", true);
+      disconnect(false);
+    }
+  }
+
   function disconnect(say = true) {
+    wantConnected = false;
     try { puzzle?.disconnect(); } catch {}
     puzzle = null;
     $("bt").hidden = true;
@@ -515,6 +581,7 @@ export function initSmartCube(api) {
     $("bt-take").hidden = true;
     api.showFull();
     $("bt-connect").textContent = "Connect smart cube";
+    $("bt-connect").disabled = false;
     if (say) status("Disconnected.");
   }
 
