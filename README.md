@@ -119,7 +119,13 @@ Facelets snapshots *from the cube* are trusted; states the driver merely added u
 Web Bluetooth needs Chrome or Edge. Once connected there are two cubes: *Your cube* mirrors the real cube, and the solution cube loops what is left of the
 current algorithm (one series with its setup, not the whole step). *Use current scramble* turns the cube's state into a scramble (via cubing's solver) and solves it;
 the next algorithm follows a second after the real cube shows the state the algorithm leads to ("done" in between). Solution rotations (`x2`, `y`, ...) are not moves for a smart cube
-(its centres never move), so the solution is translated into the cube's own frame before it is compared.
+(its centres never move), so the solution is translated into the cube's own frame before it is compared (`src/cubeframe.js`).
+
+Wide and slice moves (Roux's `r` and `M`, wide moves in algorithm sets) reach a smart cube as turns of its outer faces, measured against its core:
+`r` is reported as `L`, `M'` as `R'` and `L`, and the whole cube turns with them (`r` = `L x`, `M'` = `R' L x`; checked against cubing.js for every wide
+and slice move, centers included). The solution is translated that way, the turn that comes with such a move applies to everything after it, and having
+done one of the two outer turns of a slice move is not a mistake (like the first quarter of a half turn). `npm test` checks that, after every move of
+every preset's solutions, the state the page expects is the one a smart cube reports (`node scripts/test.mjs 0 smartcube`).
 
 ### Orientation sync and reliability
 

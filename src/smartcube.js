@@ -6,13 +6,13 @@ import { cube3x3x3 } from "cubing/puzzles";
 import { TwistyPlayer } from "cubing/twisty";
 import { connectSmartCube } from "smartcube-web-bluetooth";
 import { rotationOf } from "./engine/flat.js";
+import { cubeFrameMoves, rotationsIn, splitLayerMove, isRotation } from "./cubeframe.js";
 import { invertAlg } from "./engine/cube.js";
 import { mergeTurns } from "./engine/solver.js";
 import { faceletsToPattern } from "./facelets.js";
 
 const $ = (id) => document.getElementById(id);
 const moveMs = (m) => (m.endsWith("2") ? 1500 : 1000);
-const isRotation = (m) => /^[xyz]/.test(m);
 
 /** Edges and corners only (a smart cube keeps its centres where they are). */
 function samePieces(a, b) {
@@ -22,41 +22,6 @@ function samePieces(a, b) {
     if (x.pieces.join() !== y.pieces.join() || x.orientation.join() !== y.orientation.join()) return false;
   }
   return true;
-}
-
-/**
- * The solution as the cube itself sees it: whole-cube rotations are not moves of a smart cube
- * (its centres never move), they only change which cube face a following turn lands on.
- */
-const flipSuffix = (rest) => (rest === "" ? "'" : rest === "'" ? "" : rest);
-
-/** A move of the shown orientation as the cube itself would call it: faces, wide moves (r, u, ...) and slices (M, E, S). */
-function cubeMove(frame, m) {
-  const c = m[0], rest = m.slice(1);
-  if ("UDFBRL".includes(c)) return frame[c] + rest;
-  if ("udfbrl".includes(c)) return frame[c.toUpperCase()].toLowerCase() + rest;
-  if ("MES".includes(c)) {
-    // a slice follows a face (M the L face, E the D face, S the F face): the same slice in the cube's own frame
-    const face = frame[{ M: "L", E: "D", S: "F" }[c]];
-    const slice = { L: "M", R: "M", D: "E", U: "E", F: "S", B: "S" }[face];
-    return slice + (face === { M: "L", E: "D", S: "F" }[slice] ? rest : flipSuffix(rest));
-  }
-  return m;
-}
-
-/**
- * The solution as the cube itself sees it: whole-cube rotations are not moves of a smart cube
- * (its centres never move), they only change which cube face a following turn lands on.
- */
-export function cubeFrameMoves(solution, setupRotation = []) {
-  const rotations = [...setupRotation];
-  const out = [];
-  for (const m of solution) {
-    if (isRotation(m)) { rotations.push(m); continue; }
-    const frame = rotations.length ? rotationOf(rotations) : null;
-    out.push(frame ? cubeMove(frame, m) : m);
-  }
-  return out;
 }
 
 const MAC_KEY = "marshall-gan-macs";
@@ -159,13 +124,19 @@ export function initSmartCube(api) {
     const { current, layout } = api.get();
     if (!puzzle || !kpuzzle || !current?.result || !layout) return;
     const cube = cubeFrameMoves(current.result.solution, current.result.setupRotation);
-    // number of cube-frame moves before solution move g
+    // number of cube-frame moves before solution move g (a slice move is two of them)
     const cubeBefore = [0];
-    current.result.solution.forEach((m) => cubeBefore.push(cubeBefore[cubeBefore.length - 1] + (isRotation(m) ? 0 : 1)));
+    cube.counts.forEach((n) => cubeBefore.push(cubeBefore[cubeBefore.length - 1] + n));
     let p = kpuzzle.defaultPattern().applyAlg(current.scramble.join(" "));
     const states = [p];
     for (const m of cube) { p = p.applyMove(m); states.push(p); }
-    plan = { units: layout.units, at: (g) => states[cubeBefore[g]], count: (g) => cubeBefore[g], next: (g) => cube[cubeBefore[g]], total: current.result.solution.length };
+    // nextTurn(g): the cube's own turns for the next solution move from g on that is a turn (two of them for a slice move)
+    const nextTurn = (g) => {
+      let i = g;
+      while (i < cube.counts.length && !cube.counts[i]) i++;
+      return i < cube.counts.length ? cube.slice(cubeBefore[i], cubeBefore[i + 1]) : [];
+    };
+    plan = { units: layout.units, at: (g) => states[cubeBefore[g]], count: (g) => cubeBefore[g], next: (g) => cube[cubeBefore[g]], nextTurn, total: current.result.solution.length };
     algIndex = 0;
     shownKey = "";
     following = true;
@@ -211,7 +182,7 @@ export function initSmartCube(api) {
   function alignLive() {
     const sol = solution(), u = unit();
     if (!u) return;
-    const need = [...pre(), ...sol.slice(0, u.s).filter(isRotation)];
+    const need = [...pre(), ...rotationsIn(sol.slice(0, u.s))];
     let j = u.s;
     for (; j < u.e && isRotation(sol[j]); j++) need.push(sol[j]);
     for (const t of need.slice(displayRot.length)) {
@@ -253,6 +224,15 @@ export function initSmartCube(api) {
    */
   const halfTurnPending = (before, move) => !!move && move.endsWith("2") && !!before
     && [move[0], move[0] + "'"].some((m) => samePieces(pattern, before.applyMove(m)));
+  /**
+   * The same for a slice move: the cube reports M as two outer turns (R L'), one after the other. Having done one of them
+   * (or a quarter of one, for M2) is not a mistake either.
+   */
+  const partTurnPending = (before, moves) => {
+    if (!before || !moves?.length) return false;
+    if (moves.length === 1) return halfTurnPending(before, moves[0]);
+    return moves.some((m) => [m, ...(m.endsWith("2") ? [m[0], m[0] + "'"] : [])].some((v) => samePieces(pattern, before.applyMove(v))));
+  };
   let pendingNow = false;
   let advanceTimer = null;
 
@@ -321,8 +301,8 @@ export function initSmartCube(api) {
       }
     }
     if (stage === 1) {
-      if (g < 0 && lastOn?.g != null && halfTurnPending(plan.at(lastOn.g), plan.next(lastOn.g))) {
-        g = lastOn.g; // a quarter of a half turn: still on the path
+      if (g < 0 && lastOn?.g != null && partTurnPending(plan.at(lastOn.g), plan.nextTurn(lastOn.g))) {
+        g = lastOn.g; // a quarter of a half turn, or one half of a slice move: still on the path
         pendingNow = true;
       }
       let u = unit();
@@ -348,7 +328,7 @@ export function initSmartCube(api) {
           // which the state comparison above has already recognised), then carry on from where the cube left it
           const at = lastOn?.g ?? u.s;
           const sol = solution();
-          const rotations = [...pre(), ...sol.slice(0, at).filter(isRotation)];
+          const rotations = [...pre(), ...rotationsIn(sol.slice(0, at))];
           const frame = rotations.length ? rotationOf(rotations) : null; // what the shown orientation was at that point
           const toView = (m) => (frame ? Object.keys(frame).find((p) => frame[p] === m[0]) + m.slice(1) : m);
           const undo = invertAlg(mergeTurns(recordedCube)).map(toView);
@@ -436,10 +416,18 @@ export function initSmartCube(api) {
       const position = frame ? Object.keys(frame).find((p) => frame[p] === move[0]) : move[0];
       live.experimentalAddMove(position + move.slice(1));
       recorded.push(position + move.slice(1));
-      if (stage === 1) {
-        if (cursor < u.e && !isRotation(sol[cursor])) cursor++; // that was the expected move
-        if (cursor >= u.e || sol.slice(cursor, u.e).every(isRotation)) emitRotations(); // rotate back at the end
+      if (stage === 1 && cursor < u.e && !isRotation(sol[cursor])) {
+        const split = splitLayerMove(sol[cursor]);
+        if (!split) cursor++; // that was the expected move
+        else if (samePieces(pattern, plan.at(cursor + 1))) {
+          // a wide or slice move is complete (the cube reported its outer turns): the live cube turns with it, like the
+          // solution cube, whose centers moved
+          live.experimentalAddMove(split.turn);
+          displayRot.push(split.turn);
+          cursor++;
+        }
       }
+      if (stage === 1 && (cursor >= u.e || sol.slice(cursor, u.e).every(isRotation))) emitRotations(); // rotate back at the end
     }
     showAlgorithm();
   }

@@ -1,7 +1,7 @@
 import { cube3x3x3 } from "cubing/puzzles";
 import { MarshallSolver } from "../src/engine/solver.js";
 import { buildMoveTables, FACES } from "../src/engine/cube.js";
-import { compose, flatSolved, flatFromMove, rotationOf, rotationWord, invertRotationWord } from "../src/engine/flat.js";
+import { compose, flatSolved, flatFromMove, rotationOf, rotationWord, invertRotationWord, ROTATIONS } from "../src/engine/flat.js";
 import { solvedMask, unsolvedOnOneSide } from "../src/engine/solver.js";
 import { BUILT_IN_PRESETS, algsetCases } from "../src/engine/presets.js";
 import fs from "node:fs";
@@ -124,6 +124,41 @@ const lastLayer = mode.includes("layer");
 let f2lUsed = 0;
 const totals = [];
 let fail = 0;
+// mode "smartcube": following a solution on a smart cube. The cube reports its state against its own core (its centers),
+// so after every solution move the state the page expects (from cubeFrameMoves) must be the true state turned until the
+// centers are home - also after wide and slice moves (Roux: r, M), which the cube reports as outer turns.
+if (mode === "smartcube") {
+  const { cubeFrameMoves } = await import("../src/cubeframe.js");
+  const words = ROTATIONS.map((r) => rotationWord(r).join(" "));
+  const coreView = (p) => { // p turned so that its centers are home
+    for (const w of words) {
+      const q = w ? p.applyAlg(w) : p;
+      if (q.patternData.CENTERS.pieces.every((x, i) => x === i) && q.patternData.CENTERS.orientation.every((o) => o === 0)) return q;
+    }
+    throw new Error("no rotation brings the centers home");
+  };
+  const same = (a, b) => ["EDGES", "CORNERS"].every((o) => a.patternData[o].pieces.join() === b.patternData[o].pieces.join() && a.patternData[o].orientation.join() === b.patternData[o].orientation.join());
+  let bad = 0, checked = 0, layerMoves = 0;
+  for (const p of BUILT_IN_PRESETS) {
+    for (let i = 0; i < 3; i++) {
+      const scr = Array.from({ length: 25 }, () => FACES[(random() * 6) | 0] + ["", "2", "'"][(random() * 3) | 0]);
+      const r = solver.solve(scr, { ...p, algsets });
+      if (r.error) { console.log("FAIL", p.id, r.error); bad++; continue; }
+      const cube = cubeFrameMoves(r.solution, r.setupRotation);
+      let expected = kp.defaultPattern().applyAlg(scr.join(" ")), k = 0;
+      let truth = kp.defaultPattern().applyAlg([...scr, ...r.setupRotation].join(" "));
+      for (let g = 0; g < r.solution.length; g++) {
+        for (let n = 0; n < cube.counts[g]; n++) expected = expected.applyMove(cube[k++]);
+        truth = truth.applyMove(r.solution[g]);
+        if (/^[rlufbdMES]/.test(r.solution[g])) layerMoves++;
+        checked++;
+        if (!same(expected, coreView(truth))) { bad++; console.log("WRONG", p.id, "after move", g, r.solution[g], scr.join(" ")); break; }
+      }
+    }
+  }
+  console.log(`${checked} solution moves checked (${layerMoves} wide or slice moves):`, bad ? bad + " wrong" : "the expected states match what a smart cube reports");
+  process.exit(bad ? 1 : 0);
+}
 // mode "errors": methods that cannot solve the cube say which step failed and why
 if (mode === "errors") {
   const scr = "R U F' L2 D B R' U2 F D' L B2 U R2 F'".split(" ");
