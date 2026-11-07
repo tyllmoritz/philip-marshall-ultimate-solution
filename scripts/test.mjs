@@ -67,21 +67,31 @@ function checkSteps(solver, scr, r, f2l, yellowTop, opts = {}) {
   if (masks[5] !== (1 << 20) - 1) return "step 6: not solved";
   return null;
 }
+// what a step must finish, in the original orientation: cross = edges 0-3, first layer corners 0-3, middle edges 8-11
+const pieceBits = (edges, corners) => edges.reduce((m, i) => m | (1 << i), 0) | corners.reduce((m, i) => m | (1 << (12 + i)), 0);
+const STEP_GOALS = {
+  "cross-optimal": pieceBits([0, 1, 2, 3], []), "cross-daisy": pieceBits([0, 1, 2, 3], []),
+  "lbl-corners": pieceBits([], [0, 1, 2, 3]), "lbl-middle": pieceBits([8, 9, 10, 11], []),
+  "cfop-f2l": pieceBits([8, 9, 10, 11], [0, 1, 2, 3]),
+  "zz-eoline": pieceBits([0, 2], []),
+  "zz-block-left": pieceBits([3, 11, 9], [2, 3]), "roux-fb": pieceBits([3, 11, 9], [2, 3]),
+  "zz-block-right": pieceBits([1, 10, 8], [1, 0]), "roux-sb": pieceBits([1, 10, 8], [1, 0]),
+};
 /** Any method: what a step finishes stays finished (cross, first layer, second layer), and the last step leaves the cube solved. */
 function genericCheck(scr, r) {
   const flatOf = (alg) => {
     const t = kp.algToTransformation(alg).transformationData;
     return flatFromMove({ ep: Uint8Array.from(t.EDGES.permutation), eo: Uint8Array.from(t.EDGES.orientationDelta), cp: Uint8Array.from(t.CORNERS.permutation), co: Uint8Array.from(t.CORNERS.orientationDelta) });
   };
-  const bits = (edges, corners) => edges.reduce((m, i) => m | (1 << i), 0) | corners.reduce((m, i) => m | (1 << (12 + i)), 0);
   const played = [...scr, ...r.setupRotation];
-  let required = 0; // in the original orientation: cross = edges 0-3, first layer corners 0-3, middle edges 8-11
+  let required = 0;
   for (const [i, step] of r.steps.entries()) {
     played.push(...step.parts.flatMap((p) => p.moves));
     const turned = played.filter((m) => /^[xyz]/.test(m));
     const mask = solvedMask(flatOf(played.join(" ") + " " + invertRotationWord(rotationWord(rotationOf(turned))).join(" ")));
     if (required & ~mask) return `step ${i + 1} (${step.name}) undid something the steps before had finished`;
-    const goal = /Cross/.test(step.name) ? bits([0, 1, 2, 3], []) : /First Layer/.test(step.name) ? bits([], [0, 1, 2, 3]) : /Second Layer/.test(step.name) ? bits([8, 9, 10, 11], []) : /F2L \(4 pairs\)/.test(step.name) ? bits([8, 9, 10, 11], [0, 1, 2, 3]) : /Left Block|First Block/.test(step.name) ? bits([3, 11, 9], [2, 3]) : /Right Block|Second Block/.test(step.name) ? bits([1, 10, 8], [1, 0]) : /EOLine/.test(step.name) ? bits([0, 2], []) : 0;
+    if (!step.id) return `step ${i + 1} (${step.name}) has no id`;
+    const goal = STEP_GOALS[step.id] ?? 0;
     if (goal & ~mask) return `step ${i + 1} (${step.name}) did not finish what it is for`;
     required |= goal;
   }

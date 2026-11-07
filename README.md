@@ -84,7 +84,7 @@ for the Random scramble button (a proper random-state 3x3x3 scramble).
 ## Playback
 
 The player always holds the full solution; cubing's own controls are hidden in favour of our own: a progress bar,
-previous/next step, previous/next series, play/pause, a loop slider (off, 1, 2, 3 moves, algo, step, all), and a
+previous/next step, previous/next algorithm, play/pause, a loop slider (off, 1, 2, 3 moves, alg, step, all), and a
 Twizzle link that opens the solution with `//` comments explaining every move. Clicking a series plays just that series,
 clicking a step loops that step, clicking the outer border plays everything, and a second click on a move plays from it.
 After every jump (and before every loop) the animation holds for one rotation. The borders of the solution and step that are
@@ -117,7 +117,7 @@ One *Connect smart cube* button for every brand: [`smartcube-web-bluetooth`](htt
 Facelets snapshots *from the cube* are trusted; states the driver merely added up from moves are ignored. The newer GAN protocols need the cube's MAC address; the browser reads it from the advertisement if it can, otherwise you are asked for it. Facelets from the cube are converted to a cubing.js pattern in `src/facelets.js`.
 
 Web Bluetooth needs Chrome or Edge. Once connected there are two cubes: *Your cube* mirrors the real cube, and the solution cube loops what is left of the
-current algorithm (one series with its setup, not the whole step). *use current scramble* turns the cube's state into a scramble (via cubing's solver) and solves it;
+current algorithm (one series with its setup, not the whole step). *Use current scramble* turns the cube's state into a scramble (via cubing's solver) and solves it;
 the next algorithm follows a second after the real cube shows the state the algorithm leads to ("done" in between). Solution rotations (`x2`, `y`, ...) are not moves for a smart cube
 (its centres never move), so the solution is translated into the cube's own frame before it is compared.
 
@@ -161,16 +161,16 @@ In 20 random solves 18 end games were a single Niklas, 2 needed two; average sol
 
 With a smart cube connected the algorithm window starts with **0. Scramble**: the moves that take the cube from where it is to the scramble
 (cubing's solver finds them from the cube's state; moves already made drop out of the list). When the cube is neither on that path nor on the solution,
-the moves it was given are listed under the target moves ("You did: ...") and **use current scramble** appears in the top right corner - it takes the cube's present state
-as the scramble. When an algorithm is finished the line reads **done** and the next algorithm follows a second later by itself (only **new scramble** after the last one is a button). Without a smart cube the move that is
+the moves it was given are listed under the target moves ("You did: ...") and **Use current scramble** appears in the top right corner - it takes the cube's present state
+as the scramble. When an algorithm is finished the line reads **Done** and the next algorithm follows a second later by itself (only **New scramble** after the last one is a button). Without a smart cube the move that is
 being played is highlighted in the algorithm line as well.
 
 ## Step 3 is split
 
-Step 3 ("Top Edge Pieces") stops at Marshall's key position: one middle-layer edge and two last-layer edges are wrong and one series
-(ideally a bare Hedgeslammer / Sledgehammer / sexy move) finishes them - that series is step 4, "Last Three Edge Pieces". The optional aligning `U`
+Step 3 ("Top edge pieces") stops at Marshall's key position: one middle-layer edge and two last-layer edges are wrong and one series
+(ideally a bare Hedgeslammer / Sledgehammer / sexy move) finishes them - that series is step 4, "Last three edge pieces". The optional aligning `U`
 turn ends step 3. In a random sample 23 of 30 solves reached the key position; otherwise step 3 simply solves all the edges and step 4 is empty. Step 2 is named
-"3 Center Section Edge Pieces" or, with partial F2L, "3 F2L Pairs".
+"3 center section edges" or, with partial F2L, "3 F2L pairs".
 
 ## Credits and licenses
 
@@ -188,7 +188,7 @@ This project's code is MIT licensed (`LICENSE`). Everything it builds on keeps i
 
 ## Loop slider
 
-*Loop* is a slider: `off`, `1`, `2`, `3` (that many moves, counted from the current one - meant for a cube without Bluetooth), `algo` (the current series), `step` and `all`.
+*Loop* is a slider: `off`, `1`, `2`, `3` (that many moves, counted from the current one - meant for a cube without Bluetooth), `alg` (the current algorithm), `step` and `all`.
 The line above the cubes highlights the move being played, also for step 0 and for the lists a smart cube shows; the solution list lights up only while the solution itself plays.
 
 The line above the cubes is grouped and coloured like the solution list - one chip per part (setup, rotation, series, repair; Hedgeslammer in blue, Niklas in orange, ...);
@@ -196,7 +196,7 @@ turns to take back after a wrong move are a red chip in front.
 
 The loop slider works the same with and without a smart cube (the remaining algorithm or the step 0 list is what it loops over). It starts at `off`, so a new
 solution plays once; connecting a smart cube switches it to `3` (unless another loop was chosen).
-Clicking a series sets it to `algo`, a step to `step`, the outer border to `all`.
+Clicking an algorithm sets it to `alg`, a step to `step`, the outer border to `all`.
 
 A half turn done as two quarter turns is not a mistake, in either direction: the cube sitting at the first quarter (`L` or `L'` for an expected `L2`) is shown as still on the path.
 Only another move after that quarter turn counts as one (and then the quarter turn is part of what is taken back).
@@ -271,9 +271,10 @@ rotations that cancel (`x' ... x`) work; algorithms that would leave the cube tu
 (F2L pairs, edge swaps at the open slot, last 3 corners on the last layer; `OPTION_STEPS`) are shown only when the method has one of those steps, and
 only the algorithm sets the method uses have a drop-down. The legend above the solution lists the kinds of moves the solution contains.
 
-When a method cannot solve a scramble, the message names the step that could not be finished and what it needs before it (`needs` in
-`STEP_LIBRARY`), e.g. "Step 2 (Last six edges) could not be finished … It needs both blocks and the top corners (CMLL) first." - or that the steps
-end before the cube is solved, or that a step has no algorithm set. `npm test` checks these (`node scripts/test.mjs 0 errors`).
+If a method cannot solve a scramble, the message names the step that got stuck and what that step needs first (`needs` in
+`STEP_LIBRARY`), for example "Step 2 (Last six edges) could not be finished … It needs both blocks and the top corners (CMLL) first."
+Two other messages cover a method whose steps stop before the cube is solved and a step without an algorithm set.
+`npm test` checks all three (`node scripts/test.mjs 0 errors`).
 
 ### F2L from the algorithm set
 
@@ -289,3 +290,10 @@ before it), with the top layer turned into place first. It replaced the built-in
 so e.g. the CFOP preset can use Cubedex's OLL and PLL instead of Tao Yu's. New steps and presets use the ZZ sets: **OCLL**, **Corner permutation** and **EPLL** (ZZ with OCLL, CP, EPLL: 13 algorithms,
 about 61 moves) and ZZ with OCLL followed by a PLL (about 50 moves). A few algorithms of a set may be skipped when they would leave the cube turned (4 of Cubedex's 21 PLL cases have only such
 algorithms; the others cover the rest).
+
+## Wording
+
+A solution has steps, a step has algorithms and an algorithm has moves. Marshall's Edge Series and Corner Series keep their
+names, since they are the algorithms of his method. Labels and buttons use sentence case, and solution steps carry the names from the
+step library (`STEP_LIBRARY` labels). Spelling is American ("center", "color"). Page text uses no dashes as punctuation: a colon,
+a full stop, a comma or brackets instead.

@@ -77,9 +77,9 @@ export function initMethods({ onChange }) {
     group("My methods", custom);
     if (method.id === CUSTOM) sel.append(new Option("Custom (not saved)", CUSTOM));
     sel.value = method.id;
-    $("preset-info").textContent = method.id === CUSTOM ? "Changed - press Save as… to keep it as your own method." : (find(method.id)?.description ?? "");
+    $("preset-info").textContent = method.id === CUSTOM ? "Changed. Press Save as… to keep it as your own method." : (find(method.id)?.description ?? "");
     $("preset-delete").hidden = !isCustomSaved();
-    $("method-name").textContent = "- " + method.name;
+    $("method-name").textContent = `(${method.name})`;
   }
 
   function render() {
@@ -108,7 +108,7 @@ export function initMethods({ onChange }) {
 
   /** "How it works": the steps of the method in use, one sentence each. */
   function renderAbout() {
-    $("about-method").textContent = "- " + method.name;
+    $("about-method").textContent = `(${method.name})`;
     const list = $("about-steps");
     list.replaceChildren();
     for (const id of method.steps) {
@@ -116,7 +116,7 @@ export function initMethods({ onChange }) {
       const li = document.createElement("li");
       const name = document.createElement("b");
       name.textContent = stepLabel(id);
-      li.append(name, " — " + (step?.explain ?? step?.hint ?? ""));
+      li.append(name, ": " + (step?.explain ?? step?.hint ?? ""));
       list.append(li);
     }
   }

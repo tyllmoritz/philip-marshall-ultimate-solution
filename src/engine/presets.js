@@ -7,9 +7,9 @@
 const FIRST_TWO_LAYERS = "the first two layers";
 export const STEP_LIBRARY = [
   { id: "cross-optimal", group: "Cross", label: "White cross (shortest)", hint: "the four white edges with the fewest moves",
-    explain: "The four white edges around the white centre, found with a short search." },
-  { id: "cross-daisy", group: "Cross", label: "White cross (daisy, then half turns)", hint: "beginner: daisy around the yellow centre, then 180° turns",
-    explain: "The beginner way: first a daisy (the four white edges around the yellow centre, white facing up), then each edge is turned above its centre and dropped into the cross with a half turn." },
+    explain: "The four white edges around the white center, found with a short search." },
+  { id: "cross-daisy", group: "Cross", label: "White cross (daisy, then half turns)", hint: "beginner: daisy around the yellow center, then 180° turns",
+    explain: "The beginner way: first a daisy (the four white edges around the yellow center, white facing up), then each edge is turned above its center and dropped into the cross with a half turn." },
   { id: "lbl-corners", group: "Layer by layer", label: "First layer corners", hint: "R U R' U' repeated",
     explain: "Each white corner is brought above its slot and put in with R U R' U', repeated until it sits right.", needs: "the white cross" },
   { id: "lbl-middle", group: "Layer by layer", label: "Second layer edges", hint: "U R U' R' U' F' U F and its mirror",
@@ -17,7 +17,7 @@ export const STEP_LIBRARY = [
   { id: "lbl-ycross", group: "Layer by layer", label: "Yellow cross", hint: "F R U R' U' F'",
     explain: "F R U R' U' F' (once or twice) turns the yellow edges up into a cross.", needs: FIRST_TWO_LAYERS },
   { id: "lbl-yedges", group: "Layer by layer", label: "Yellow edges", hint: "Sune / anti-Sune",
-    explain: "Sune or anti-Sune swaps the yellow edges until they match their side centres.", needs: "the first two layers and the yellow cross" },
+    explain: "Sune or anti-Sune swaps the yellow edges until they match their side centers.", needs: "the first two layers and the yellow cross" },
   { id: "lbl-ycorners-pos", group: "Layer by layer", label: "Yellow corners: position", hint: "Niklas",
     explain: "Niklas cycles three yellow corners until all four sit in their places (twisted or not).", needs: "the first two layers and the yellow edges" },
   { id: "lbl-ycorners-twist", group: "Layer by layer", label: "Yellow corners: twist", hint: "R' D' R D repeated",
@@ -28,8 +28,8 @@ export const STEP_LIBRARY = [
     explain: "Edge series until the key position: one middle-layer edge and two last-layer edges are wrong and a single series solves them. An aligning U turn may end the step.", needs: "the white cross and three middle-layer edges (or F2L pairs)" },
   { id: "marshall-last", group: "Marshall", label: "Last three edge pieces", hint: "the one series from the key position",
     explain: "The one edge series that finishes the edges from the key position.", needs: "the key position (the step Top edge pieces)" },
-  { id: "marshall-corners", group: "Marshall", label: "Five corner pieces", hint: "Niklas until the last 2-3 corners share a side",
-    explain: "The Corner Series (Niklas, U R U' L' U R' U' L) cycles three corners without touching any edge, until the last 2-3 corners share one side.", needs: "all edges solved" },
+  { id: "marshall-corners", group: "Marshall", label: "Five corner pieces", hint: "Niklas until the last 2–3 corners share a side",
+    explain: "The Corner Series (Niklas, U R U' L' U R' U' L) cycles three corners without touching any edge, until the last 2–3 corners share one side.", needs: "all edges solved" },
   { id: "marshall-end", group: "Marshall", label: "The end game", hint: "one Niklas (or two)",
     explain: "The last corners fall into place together, usually with one Niklas after a rotation and a few setup turns.", needs: "all edges solved and the last corners on one side" },
   { id: "cfop-f2l", group: "CFOP", label: "F2L (all four pairs)", hint: "corner-edge pairs by F2L algorithms",
@@ -63,11 +63,11 @@ export const STEP_LIBRARY = [
   { id: "roux-cmll", group: "Roux", label: "CMLL", hint: "the last layer's corners from the CMLL set",
     explain: "One algorithm from the CMLL set solves the four top corners; the middle slice may be disturbed.", needs: "both blocks" },
   { id: "roux-lse", group: "Roux", label: "Last six edges", hint: "with M and U only",
-    explain: "The six remaining edges (and the centres), with M and U turns only.", needs: "both blocks and the top corners (CMLL)" },
+    explain: "The six remaining edges (and the centers), with M and U turns only.", needs: "both blocks and the top corners (CMLL)" },
   { id: "edges-all", group: "Anything left", label: "All remaining edges (series)", hint: "edge series with setup, until all edges are home",
     explain: "Edge series with setup turns until every edge is home." },
   { id: "corners-all", group: "Anything left", label: "All remaining corners (Niklas)", hint: "Niklas with setup, until the cube is solved",
-    explain: "Niklas with setup turns until every corner is home - the cube is solved.", needs: "all edges solved" },
+    explain: "Niklas with setup turns until every corner is home and the cube is solved.", needs: "all edges solved" },
 ];
 
 const LBL_STEPS = ["lbl-corners", "lbl-middle", "lbl-ycross", "lbl-yedges", "lbl-ycorners-pos", "lbl-ycorners-twist"];

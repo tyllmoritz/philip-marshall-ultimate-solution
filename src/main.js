@@ -175,7 +175,7 @@ function shortInfo(part) {
       if (!colours) return "F2L algorithm · inserts a corner-edge pair";
       return part.frees ? `F2L algorithm · frees the ${colours} pair` : `F2L algorithm · inserts the ${colours} pair`;
     }
-    case "daisy": return "Daisy · white edges up around the yellow centre";
+    case "daisy": return "Daisy · white edges up around the yellow center";
     case "insert": return "Half turn · drops a white edge into the cross";
     default: return "Turns · line up the pieces";
   }
@@ -235,7 +235,7 @@ function showInfo(g) {
   box2.classList.remove("done");
   const from = Math.max(u.s, view.from);
   const n = renderLine(unitGroups(layout.units.indexOf(u), from));
-  if (!n) box2.textContent = "done";
+  if (!n) box2.textContent = "Done";
   lineTokens().forEach((t, i) => t.classList.toggle("now", from + i === lit)); // the move being played, like in the solution list
   $("algo-did").hidden = true;
 }
@@ -475,7 +475,7 @@ function finish(result) {
 }
 
 const SERIES_KINDS = ["edge", "corner", "f2l", "turns", "daisy", "insert", "alg"];
-const KIND_LABEL = { alg: "algorithm", daisy: "daisy: white edges up around the yellow centre", insert: "half turn into the white cross", edge: "Hedgeslammer / Sledgehammer / sexy move (edge series)", corner: "Niklas (corner series)", setup: "setup / undo turns", undo: "undo", turns: "turns", rotate: "cube rotation", f2l: "F2L algorithm" };
+const KIND_LABEL = { alg: "algorithm", daisy: "daisy: white edges up around the yellow center", insert: "half turn into the white cross", edge: "Hedgeslammer / Sledgehammer / sexy move (edge series)", corner: "Niklas (corner series)", setup: "setup / undo turns", undo: "undo", turns: "turns", rotate: "cube rotation", f2l: "F2L algorithm" };
 // the legend above the solution: [kind, text, tooltip], shown for the kinds the solution has
 const LEGEND = [
   ["edge", "Hedgeslammer / Sledgehammer / sexy move", "F R' F' R, its inverse R' F R F' and all their turned or mirrored forms such as R U R' U'"],
@@ -543,8 +543,8 @@ function setControls(on) {
 
 function render({ scramble, result }) {
   $("result").hidden = false;
-  $("total").textContent = `— ${result.total} moves`;
-  $("total2").textContent = `— ${result.total} moves`;
+  $("total").textContent = `(${result.total} moves)`;
+  $("total2").textContent = `(${result.total} moves)`;
   renderLegend(result.steps);
   const ol = $("steps");
   ol.replaceChildren();
@@ -765,9 +765,9 @@ const smart = initSmartCube({
     $("algo-title").textContent = info.title;
     $("algo-sub").textContent = info.sub ?? "";
     const m = $("algo-moves");
-    m.classList.toggle("done", !!info.done && info.action === "scramble"); // (only "new scramble" is a button)
+    m.classList.toggle("done", !!info.done && info.action === "scramble"); // (only "New scramble" is a button)
     m.dataset.action = info.action ?? "";
-    if (info.done) m.textContent = info.action === "scramble" ? "new scramble" : "done";
+    if (info.done) m.textContent = info.action === "scramble" ? "New scramble" : "Done";
     else {
       const n = renderLine(info.groups ?? [{ kind: "turns", moves: (info.moves ?? "").split(" ").filter(Boolean) }]);
       if (!n) m.textContent = "";

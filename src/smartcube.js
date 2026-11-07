@@ -284,7 +284,7 @@ export function initSmartCube(api) {
     pendingNow = false;
     if (stage === 0) {
       if (atScramble && scrPath) {
-        info = { title: "0. Scramble", sub: "from your cube to the scramble", done: true };
+        info = { title: "0. Scramble", sub: "From your cube to the scramble", done: true };
         custom = { setup: [scrPath.start, ...scrPath.moves, ...leadFrame().lead].join(" "), moves: [] }; // nothing left to play, and no solution step lights up
       } else if (atScramble) {
         stage = 1; // the cube is at the scramble already
@@ -307,7 +307,7 @@ export function initSmartCube(api) {
           const { lead, toView } = leadFrame();
           const remaining = scrPath.moves.slice(k).map(toView);
           custom = { setup: [scrPath.start, ...scrPath.moves.slice(0, k), ...lead].join(" "), moves: remaining };
-          info = { title: "0. Scramble", sub: "from your cube to the scramble", groups: [{ kind: "turns", moves: remaining }] };
+          info = { title: "0. Scramble", sub: "From your cube to the scramble", groups: [{ kind: "turns", moves: remaining }] };
         } else {
           // off the path: first take the wrong turns back, then carry on from where the cube left the path
           const at = lastOn?.k ?? 0;
@@ -316,7 +316,7 @@ export function initSmartCube(api) {
           did = recordedCube.map(toView); // in the orientation the list is shown in, not the live cube's
           const moves = [...undo, ...scrPath.moves.slice(at).map(toView)];
           custom = { setup: [scrPath.start, ...scrPath.moves.slice(0, at), ...recordedCube, ...lead].join(" "), moves };
-          info = { title: "0. Scramble", sub: "from your cube to the scramble", groups: [{ kind: "fix", moves: undo }, { kind: "turns", moves: scrPath.moves.slice(at).map(toView) }] };
+          info = { title: "0. Scramble", sub: "From your cube to the scramble", groups: [{ kind: "fix", moves: undo }, { kind: "turns", moves: scrPath.moves.slice(at).map(toView) }] };
         }
       }
     }
@@ -333,7 +333,7 @@ export function initSmartCube(api) {
         u = unit();
       }
       if (!u) {
-        info = { title: "Solved", sub: "all algorithms done", moves: "new scramble", done: true, action: "scramble" };
+        info = { title: "Solved", sub: "All algorithms done", moves: "New scramble", done: true, action: "scramble" };
         range = { from: plan.total, to: plan.total };
       } else {
         const inside = g >= u.s && g <= u.e;
@@ -567,7 +567,7 @@ export function initSmartCube(api) {
     const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
     try { puzzle?.disconnect(); } catch {}
     for (let attempt = 1; attempt <= 4 && wantConnected; attempt++) {
-      status(`Connection lost - reconnecting (${attempt}/4)…`, true);
+      status(`Connection lost, reconnecting (${attempt}/4)…`, true);
       await sleep(1200 * attempt);
       if (!wantConnected) break;
       try {
@@ -592,7 +592,7 @@ export function initSmartCube(api) {
     }
     reconnecting = false;
     if (wantConnected) {
-      status("Connection to the cube was lost - press Connect again.", true);
+      status("Lost the connection to the cube. Press Connect again.", true);
       disconnect(false);
     }
   }

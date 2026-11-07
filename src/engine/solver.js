@@ -7,6 +7,7 @@ import {
   buildMoveTables, parseAlg, invertAlg, emptyState, applyTo, FACES,
 } from "./cube.js";
 import { movecount } from "./mcc.js";
+import { stepLabel } from "./presets.js";
 import { blockSearch, eoLineMoves, lseMoves, centreTurns, ALL_MOVES } from "./blocks.js";
 import { F2L_ALGS, F2L_EXTRACTIONS, F2L_PRE } from "./f2l.js";
 import {
@@ -162,7 +163,7 @@ export function optimizeSteps(steps) {
       if (sameGroup) last.moves.push(t.m);
       else parts.push({ kind, moves: [t.m], act: t.act, ...(t.pair !== undefined ? { pair: t.pair, ...(t.frees ? { frees: true } : {}) } : {}), ...(t.label ? { label: t.label } : {}) });
     }
-    return { name: step.name, parts, count: parts.reduce((n, p) => n + (p.kind === "rotate" ? 0 : p.moves.length), 0) };
+    return { id: step.id, name: step.name, parts, count: parts.reduce((n, p) => n + (p.kind === "rotate" ? 0 : p.moves.length), 0) };
   });
 }
 
@@ -801,7 +802,7 @@ export class MarshallSolver {
     const need = this.edgeParity(flipped);
     const done = (st) => st.every((v) => v < 8 && !(v & 1)); // top layer, white facing up
     const solved = (st) => st.every((v, k) => v === (4 + k) * 2);
-    if (solved(startSt)) return { moves: [], parts: [], state: flipped, flipped: true, name: "The Cross" };
+    if (solved(startSt)) return { moves: [], parts: [], state: flipped, flipped: true, id: "cross-daisy" };
 
     // BFS over the four white edges; every daisy found is finished by the best order of half turns
     const SIZE = 24 ** 4;
@@ -867,17 +868,17 @@ export class MarshallSolver {
     goals.sort((a, b) => a.len - b.len || movecount([...a.daisy, ...a.inserts.flat()]) - movecount([...b.daisy, ...b.inserts.flat()]));
     const g = goals[0];
     const parts = [];
-    if (g.daisy.length) parts.push({ kind: "daisy", moves: g.daisy, act: this.actionId++, note: "Daisy: bring the four white edges up around the yellow centre, white facing up" });
-    for (const ins of g.inserts) parts.push({ kind: "insert", moves: ins, act: this.actionId++, note: "Turn the top layer so the white edge is above its centre, then a half turn (180°) drops it into the white cross" });
+    if (g.daisy.length) parts.push({ kind: "daisy", moves: g.daisy, act: this.actionId++, note: "Daisy: bring the four white edges up around the yellow center, white facing up" });
+    for (const ins of g.inserts) parts.push({ kind: "insert", moves: ins, act: this.actionId++, note: "Turn the top layer so the white edge is above its center, then a half turn (180°) drops it into the white cross" });
     const moves = parts.flatMap((p) => p.moves);
-    return { moves, parts, state: this.run(flipped, moves), flipped: true, name: "The Cross (beginner: daisy, then half turns)" };
+    return { moves, parts, state: this.run(flipped, moves), flipped: true, id: "cross-daisy" };
   }
 
   step2Candidates(state, f2l, algsets = null) {
     const mid = { target: { edges: MIDDLE, corners: [] }, goal: 3 };
     const plain = (pick) => {
       const r = this.climb(state, this.edgeTable.step2, { ...mid, pick });
-      return { name: "3 Center Section Edge Pieces", parts: this.actionsToParts(r.actions, "edge"), state: r.state, corners: [], pairs: 0 };
+      return { name: "3 center section edges", parts: this.actionsToParts(r.actions, "edge"), state: r.state, corners: [], pairs: 0 };
     };
     if (!f2l) return this.rank(plain);
     // Partial F2L: three corner-edge pairs next to the cross, then the other five edges with
@@ -887,7 +888,7 @@ export class MarshallSolver {
       const r = plain(pick);
       const corners = this.solvedEdges(r.state, MIDDLE).slice(0, 3).map((e) => PAIR_CORNER[e]);
       const rc = this.climb(r.state, this.cornerTable, { target: { edges: [], corners }, goal: corners.length });
-      return { name: "3 F2L Pairs", parts: [...r.parts, ...this.actionsToParts(rc.actions, "corner")], state: rc.state, corners, pairs: corners.length };
+      return { name: "3 F2L pairs", parts: [...r.parts, ...this.actionsToParts(rc.actions, "corner")], state: rc.state, corners, pairs: corners.length };
     };
     // the F2L algorithm set first when there is one (every case, every slot), then the built-in insertion list, then the series
     let fromSet = [];
@@ -895,7 +896,7 @@ export class MarshallSolver {
       try {
         const pairScore = (f) => { let n = 0; for (const e of MIDDLE) { const c = PAIR_CORNER[e]; if (f[e] === e && f[12 + e] === 0 && f[24 + c] === c && f[32 + c] === 0) n += 2; } return n; };
         fromSet = this.algsetStage("f2l", algsets.f2l, false, { target: { edges: [], corners: [] }, goal: 6, count: pairScore, keep: (f) => CROSS_BITS | solvedBits(f, MIDDLE, [4, 5, 6, 7]), rotate: true })(state)
-          .map((c) => ({ ...c, name: "3 F2L Pairs", pairs: 3, corners: MIDDLE.filter((e) => c.state[e] === e && c.state[12 + e] === 0).map((e) => PAIR_CORNER[e]).filter((k) => c.state[24 + k] === k && c.state[32 + k] === 0) }));
+          .map((c) => ({ ...c, name: "3 F2L pairs", pairs: 3, corners: MIDDLE.filter((e) => c.state[e] === e && c.state[12 + e] === 0).map((e) => PAIR_CORNER[e]).filter((k) => c.state[24 + k] === k && c.state[32 + k] === 0) }));
       } catch { /* the built-in ways below */ }
     }
     const all = [...fromSet, ...[...this.rank((pick) => this.f2lByAlgorithms(state, pick)), ...this.rank(bySeries)].sort((a, b) => a.score - b.score)];
@@ -911,16 +912,16 @@ export class MarshallSolver {
       const n = this.solvedCorners(f, ALL_CORNERS).length;
       return n >= 5 && unsolvedOnOneSide(f, lastLayer) ? n : Math.min(n, 4);
     };
-    const cornerStage = (name, goal, count, picks = 6, penalty = null) => (s) => this.rank((pick) => {
+    const cornerStage = (goal, count, picks = 6, penalty = null) => (s) => this.rank((pick) => {
       const r = this.climb(s, this.cornerTable, { target: { edges: [], corners: ALL_CORNERS }, goal, count, pick });
       return { parts: this.actionsToParts(r.actions, "corner"), state: r.state };
-    }, picks, penalty).map((c) => ({ ...c, name }));
+    }, picks, penalty);
     // the end game is usually: rotate, 1-3 setup turns, one Niklas, repair - look for that first
     const endGame = (s) => {
       const hit = this.endgameSingle(s);
-      const single = hit ? [{ parts: this.actionsToParts([hit], "corner"), state: compose(s, hit.flat), name: "The End Game" }] : [];
+      const single = hit ? [{ parts: this.actionsToParts([hit], "corner"), state: compose(s, hit.flat) }] : [];
       for (const c of single) c.score = this.mcc(c.parts);
-      return [...single, ...cornerStage("The End Game", 8)(s)].sort((a, b) => a.score - b.score);
+      return [...single, ...cornerStage(8)(s)].sort((a, b) => a.score - b.score);
     };
     // step 4 is judged by what it leaves: a position the end game solves with a single Niklas counts for a lot
     const leavesSingle = (c) => (this.endgameSingle(c.state) ? 0 : 25);
@@ -936,12 +937,11 @@ export class MarshallSolver {
         r = this.finishEdges(s, guard(s, ctx), edgeTarget, pick); // no key position within reach: solve the edges outright
       }
       return { parts: this.actionsToParts(r.actions, "edge"), state: r.state };
-    }, 8).map((c) => ({ ...c, name: "Top Edge Pieces" }));
+    }, 8);
     const only = (target) => ({ target, goal: target.edges.length + target.corners.length, count: undefined });
     const topPos = (f) => [0, 1, 2, 3].filter((i) => f[24 + i] === i).length; // yellow corners in their places
     const topOriented = (f) => [0, 1, 2, 3].filter((i) => f[12 + i] === 0).length; // yellow edges facing up
     const lastLayerOriented = (f) => topOriented(f) + [0, 1, 2, 3].filter((i) => f[32 + i] === 0).length; // + yellow corners facing up
-    const named = (name, stage) => (s, ctx) => stage(s, ctx).map((c) => ({ ...c, name }));
     // a block by iterative deepening: pieces of earlier steps that are home stay home
     const blockStage = (edges, corners, moves, { keepEdges, keepCorners, label, maxDepth = 12 }) => (s) => {
       const keepE = keepEdges.filter((e) => !edges.includes(e) && s[e] === e && s[12 + e] === 0);
@@ -956,48 +956,48 @@ export class MarshallSolver {
     const builders = {
       "marshall-mid": (s) => this.step2Candidates(s, f2l, algsets),
       "marshall-top": topEdges,
-      "marshall-last": (s, ctx) => this.lastEdges(s, guard(s, ctx)).map((c) => ({ ...c, name: "Last Three Edge Pieces" })),
-      "marshall-corners": cornerStage("Five Corner Pieces", 5, fiveOnASide, 10, leavesSingle),
+      "marshall-last": (s, ctx) => this.lastEdges(s, guard(s, ctx)),
+      "marshall-corners": cornerStage(5, fiveOnASide, 10, leavesSingle),
       "marshall-end": endGame,
       "edges-all": (s, ctx) => this.rank((pick) => {
         const r = this.finishEdges(s, guard(s, ctx), edgeTarget, pick);
         return { parts: this.actionsToParts(r.actions, "edge"), state: r.state };
-      }, 6).map((c) => ({ ...c, name: "All Edge Pieces" })),
-      "corners-all": cornerStage("All Corner Pieces", 8),
+      }, 6),
+      "corners-all": cornerStage(8),
       // layer by layer (the beginner method): all in the turned-over frame, white cross below, yellow on top
-      "lbl-corners": named("First Layer Corners", this.macroStage("lbl-corners", LBL.corners, { target: { edges: [], corners: [4, 5, 6, 7] }, goal: 4, keep: (f) => CROSS_BITS | solvedBits(f, [], [4, 5, 6, 7]) })),
-      "lbl-middle": named("Second Layer Edges", this.macroStage("lbl-middle", LBL.middle, { target: { edges: MIDDLE, corners: [] }, goal: 4, keep: (f) => CROSS_BITS | D_CORNER_BITS | solvedBits(f, MIDDLE, []) })),
-      "lbl-ycross": named("Yellow Cross", this.macroStage("lbl-ycross", LBL.ycross, { target: { edges: [], corners: [] }, goal: 4, count: topOriented, keep: () => CROSS_BITS | D_CORNER_BITS | MIDDLE_BITS })),
-      "lbl-yedges": named("Yellow Edges", this.macroStage("lbl-yedges", LBL.yedges, { target: { edges: [0, 1, 2, 3], corners: [] }, goal: 4, keep: () => CROSS_BITS | D_CORNER_BITS | MIDDLE_BITS, accept: (f) => topOriented(f) === 4 })),
-      "lbl-ycorners-pos": named("Yellow Corners: Position", (s) => this.rank((pick) => {
+      "lbl-corners": this.macroStage("lbl-corners", LBL.corners, { target: { edges: [], corners: [4, 5, 6, 7] }, goal: 4, keep: (f) => CROSS_BITS | solvedBits(f, [], [4, 5, 6, 7]) }),
+      "lbl-middle": this.macroStage("lbl-middle", LBL.middle, { target: { edges: MIDDLE, corners: [] }, goal: 4, keep: (f) => CROSS_BITS | D_CORNER_BITS | solvedBits(f, MIDDLE, []) }),
+      "lbl-ycross": this.macroStage("lbl-ycross", LBL.ycross, { target: { edges: [], corners: [] }, goal: 4, count: topOriented, keep: () => CROSS_BITS | D_CORNER_BITS | MIDDLE_BITS }),
+      "lbl-yedges": this.macroStage("lbl-yedges", LBL.yedges, { target: { edges: [0, 1, 2, 3], corners: [] }, goal: 4, keep: () => CROSS_BITS | D_CORNER_BITS | MIDDLE_BITS, accept: (f) => topOriented(f) === 4 }),
+      "lbl-ycorners-pos": (s) => this.rank((pick) => {
         const r = this.climb(s, this.cornerTable, { target: { edges: [], corners: [] }, goal: 4, count: topPos, pick, keep: () => ALL_EDGE_BITS | D_CORNER_BITS });
         return { parts: this.actionsToParts(r.actions, "corner"), state: r.state };
-      }, 6)),
-      "lbl-ycorners-twist": named("Yellow Corners: Twist", (s) => [this.twistCorners(s)]),
+      }, 6),
+      "lbl-ycorners-twist": (s) => [this.twistCorners(s)],
       // ZZ: EOLine, two 2x2x3 blocks with R U L only, then the last layer (ZBLL, or COLL and ELL)
-      "zz-eoline": named("EOLine", (s) => this.rank((pick) => {
+      "zz-eoline": (s) => this.rank((pick) => {
         const r = eoLineMoves(this, s, pick);
         return { parts: r.moves.length ? [{ kind: "turns", moves: r.moves, act: this.actionId++, label: "EOLine" }] : [], state: r.state };
-      }, 6)),
-      "zz-block-left": named("Left Block", blockStage([7, 9, 11], [5, 6], RUL, { keepEdges: [4, 6], keepCorners: [], label: "Left block" })),
-      "zz-block-right": named("Right Block", blockStage([5, 8, 10], [4, 7], RUL, { keepEdges: [4, 6, 7, 9, 11], keepCorners: [5, 6], label: "Right block" })),
-      "zz-ocll": named("OCLL", (s) => this.algsetStage("ocll", algsets?.ocll, false, { target: { edges: [], corners: [] }, goal: 4, count: (f) => [0, 1, 2, 3].filter((i) => f[32 + i] === 0).length, keep: () => F2L_BITS })(s)),
-      "zz-cpll": named("Corner Permutation", (s) => this.algsetStage("cp", algsets?.cp, true, { target: { edges: [], corners: [] }, goal: 4, count: topPos, keep: () => F2L_BITS })(s)),
-      "zz-epll": named("EPLL", (s) => this.algsetStage("epll", algsets?.epll, true, { target: { edges: [0, 1, 2, 3], corners: [] }, goal: 4, keep: () => F2L_BITS })(s)),
-      "zz-zbll": named("ZBLL", (s) => this.algsetStage("zbll", algsets?.zbll, true, { target: { edges: [0, 1, 2, 3], corners: [0, 1, 2, 3] }, goal: 8, keep: () => F2L_BITS })(s)),
-      "zz-coll": named("COLL", (s) => this.algsetStage("coll", algsets?.coll, true, { target: { edges: [], corners: [0, 1, 2, 3] }, goal: 4, keep: () => F2L_BITS })(s)),
-      "zz-ell": named("ELL", (s) => this.algsetStage("ell", algsets?.ell, true, { target: { edges: [0, 1, 2, 3], corners: [] }, goal: 4, keep: () => F2L_BITS })(s)),
+      }, 6),
+      "zz-block-left": blockStage([7, 9, 11], [5, 6], RUL, { keepEdges: [4, 6], keepCorners: [], label: "Left block" }),
+      "zz-block-right": blockStage([5, 8, 10], [4, 7], RUL, { keepEdges: [4, 6, 7, 9, 11], keepCorners: [5, 6], label: "Right block" }),
+      "zz-ocll": (s) => this.algsetStage("ocll", algsets?.ocll, false, { target: { edges: [], corners: [] }, goal: 4, count: (f) => [0, 1, 2, 3].filter((i) => f[32 + i] === 0).length, keep: () => F2L_BITS })(s),
+      "zz-cpll": (s) => this.algsetStage("cp", algsets?.cp, true, { target: { edges: [], corners: [] }, goal: 4, count: topPos, keep: () => F2L_BITS })(s),
+      "zz-epll": (s) => this.algsetStage("epll", algsets?.epll, true, { target: { edges: [0, 1, 2, 3], corners: [] }, goal: 4, keep: () => F2L_BITS })(s),
+      "zz-zbll": (s) => this.algsetStage("zbll", algsets?.zbll, true, { target: { edges: [0, 1, 2, 3], corners: [0, 1, 2, 3] }, goal: 8, keep: () => F2L_BITS })(s),
+      "zz-coll": (s) => this.algsetStage("coll", algsets?.coll, true, { target: { edges: [], corners: [0, 1, 2, 3] }, goal: 4, keep: () => F2L_BITS })(s),
+      "zz-ell": (s) => this.algsetStage("ell", algsets?.ell, true, { target: { edges: [0, 1, 2, 3], corners: [] }, goal: 4, keep: () => F2L_BITS })(s),
       // Roux: two 1x2x3 blocks, CMLL, then the last six edges with M and U
-      "roux-fb": named("First Block", blockStage([7, 9, 11], [5, 6], ALL_MOVES, { keepEdges: [], keepCorners: [], label: "First block", maxDepth: 11 })),
-      "roux-sb": named("Second Block", blockStage([5, 8, 10], [4, 7], ROUX_SB, { keepEdges: [7, 9, 11], keepCorners: [5, 6], label: "Second block", maxDepth: 12 })),
-      "roux-cmll": named("CMLL", (s) => this.algsetStage("cmll", algsets?.cmll, true, { target: { edges: [], corners: [0, 1, 2, 3] }, goal: 4, keep: (f) => bits([5, 7, 8, 9, 10, 11].filter((e) => f[e] === e && f[12 + e] === 0), [4, 5, 6, 7].filter((c) => f[24 + c] === c && f[32 + c] === 0)) })(s)),
-      "roux-lse": named("Last Six Edges", (s, ctx) => [0, 1, 2].map((v) => {
+      "roux-fb": blockStage([7, 9, 11], [5, 6], ALL_MOVES, { keepEdges: [], keepCorners: [], label: "First block", maxDepth: 11 }),
+      "roux-sb": blockStage([5, 8, 10], [4, 7], ROUX_SB, { keepEdges: [7, 9, 11], keepCorners: [5, 6], label: "Second block", maxDepth: 12 }),
+      "roux-cmll": (s) => this.algsetStage("cmll", algsets?.cmll, true, { target: { edges: [], corners: [0, 1, 2, 3] }, goal: 4, keep: (f) => bits([5, 7, 8, 9, 10, 11].filter((e) => f[e] === e && f[12 + e] === 0), [4, 5, 6, 7].filter((c) => f[24 + c] === c && f[32 + c] === 0)) })(s),
+      "roux-lse": (s, ctx) => [0, 1, 2].map((v) => {
         const r = lseMoves(this, s, ctx.centre ?? 0, v);
         return { parts: r.moves.length ? [{ kind: "turns", moves: r.moves, act: this.actionId++, label: "Last six edges" }] : [], state: r.state, score: v };
       }).filter((c, i, all) => all.findIndex((x) => x.parts.map((p) => p.moves.join(" ")).join() === c.parts.map((p) => p.moves.join(" ")).join()) === i)
-        .map((c) => ({ ...c, score: this.mcc(c.parts) })).sort((a, b) => a.score - b.score)),
+        .map((c) => ({ ...c, score: this.mcc(c.parts) })).sort((a, b) => a.score - b.score),
       // CFOP: the four pairs by algorithms, then the last layer by the OLL and PLL sets
-      "cfop-f2l": named("F2L (4 pairs)", (s) => {
+      "cfop-f2l": (s) => {
         // the F2L algorithm set (every case, every slot, the top layer turned into place first) ...
         const pairBits = (f) => CROSS_BITS | solvedBits(f, MIDDLE, [4, 5, 6, 7]);
         const pairScore = (f) => { let n = 0; for (const e of MIDDLE) { const c = PAIR_CORNER[e]; if (f[e] === e && f[12 + e] === 0 && f[24 + c] === c && f[32 + c] === 0) n += 2; } return n; };
@@ -1015,13 +1015,13 @@ export class MarshallSolver {
           .slice(0, 2).flatMap((c1) => this.macroStage("f2l-middle", LBL.middle, { target: { edges: MIDDLE, corners: [] }, goal: 4, keep: (f) => CROSS_BITS | D_CORNER_BITS | solvedBits(f, MIDDLE, []) })(c1.state)
             .slice(0, 2).map((c2) => ({ parts: [...c1.parts, ...c2.parts], state: c2.state, score: c1.score + c2.score })));
         return [...direct, ...rest.sort((a, b) => a.score - b.score)];
-      }),
-      "cfop-oll": named("OLL", (s) => this.algsetStage("oll", algsets?.oll, false, {
+      },
+      "cfop-oll": (s) => this.algsetStage("oll", algsets?.oll, false, {
         target: { edges: [], corners: [] }, goal: 8, count: lastLayerOriented, keep: () => F2L_BITS,
-      })(s)),
-      "cfop-pll": named("PLL", (s) => this.algsetStage("pll", algsets?.pll, true, {
+      })(s),
+      "cfop-pll": (s) => this.algsetStage("pll", algsets?.pll, true, {
         target: { edges: [0, 1, 2, 3], corners: [0, 1, 2, 3] }, goal: 8, keep: () => F2L_BITS,
-      })(s)),
+      })(s),
     };
     const stageIds = (stepIds ?? MARSHALL_STEPS).filter((id) => !id.startsWith("cross-"));
     for (const id of stageIds) if (!builders[id]) throw new Error("unknown step " + id);
@@ -1057,9 +1057,10 @@ export class MarshallSolver {
       const info = { code: failure.code, step: failure.i + (cross.skip ? 1 : 2), id: stageIds[failure.i] ?? null };
       throw Object.assign(new Error(info.code === "unsolved" ? "these steps do not solve the cube" : `step ${info.step} (${info.id}): ${info.code}`), { info });
     }
+    // steps are named as in the step library (the step editor shows the same names); Marshall's second step says which way it went
     const rawSteps = [
-      ...(cross.skip ? [] : [{ name: cross.name ?? "The Cross", parts: cross.parts ?? (cross.moves.length ? [{ kind: "turns", moves: cross.moves }] : []) }]),
-      ...chosen.map((c) => ({ name: c.name, parts: c.parts })),
+      ...(cross.skip ? [] : [{ id: cross.id ?? "cross-optimal", name: stepLabel(cross.id ?? "cross-optimal"), parts: cross.parts ?? (cross.moves.length ? [{ kind: "turns", moves: cross.moves }] : []) }]),
+      ...chosen.map((c, k) => ({ id: stageIds[k], name: stageIds[k] === "marshall-mid" ? c.name : stepLabel(stageIds[k]), parts: c.parts })),
     ];
     const stripped = stripEnds(flipAfterCross(optimizeSteps(rawSteps), yellowTop || cross.skip, cross.skip));
     const steps = stripped.steps.map((st) => ({ ...st, mcc: movecount(st.parts.flatMap((p) => p.moves)) }));
@@ -1335,7 +1336,7 @@ export class MarshallSolver {
       return { ...a, pairEdge: added };
     });
     for (let i = tagged.length - 2; i >= 0; i--) if (tagged[i].pairEdge === undefined && tagged[i + 1].pairEdge !== undefined) tagged[i].pairFor = tagged[i + 1].pairEdge;
-    return { name: `${pairs} F2L Pairs`, parts: this.actionsToParts(tagged, "f2l"), state: rp.state, corners, pairs };
+    return { name: `${pairs} F2L pairs`, parts: this.actionsToParts(tagged, "f2l"), state: rp.state, corners, pairs };
   }
 
   /** Of the equally cheap spellings of an action, the one with the lowest movecount coefficient. */
