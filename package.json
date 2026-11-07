@@ -18,6 +18,8 @@
     "smartcube-web-bluetooth": "github:poliva/smartcube-web-bluetooth#2077416d6c828ec926dee424cf1bbfe4c0f25a47"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.0",
+    "@types/node": "^26.6.6",
     "vite": "^8.3.5"
   },
   "type": "module",
