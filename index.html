@@ -52,8 +52,36 @@
           <select id="preset"></select>
           <p id="preset-info" class="hint"></p>
           <h3>Steps (<span id="steps-count"></span>)</h3>
+          <p class="hint">Each step reaches a goal (the colored stickers; yellow on top) and keeps what the steps before it reached. A step that uses algorithms picks its set here.</p>
           <ol id="steps-list" class="steps-list"></ol>
           <select id="step-add" aria-label="Add a step"></select>
+          <section id="step-editor" class="step-editor" aria-labelledby="se-title" hidden>
+            <h3 id="se-title">New step</h3>
+            <label for="se-name">Name</label>
+            <input id="se-name" type="text" maxlength="60" placeholder="e.g. 2-look OLL: edges" />
+            <p class="label">Goal <span class="hint">(click the stickers that must show their color when the step is done)</span></p>
+            <div class="se-goal">
+              <div id="se-net"></div>
+              <div id="se-goals" class="se-goals" role="group" aria-label="Goal shortcuts"></div>
+            </div>
+            <p class="label">Algorithms</p>
+            <label class="check" for="se-source-set"><input type="radio" name="se-source" id="se-source-set" /> From an algorithm set</label>
+            <select id="se-set" aria-label="Algorithm set"></select>
+            <label class="check" for="se-source-list"><input type="radio" name="se-source" id="se-source-list" /> My own list <span class="hint">(one algorithm per line)</span></label>
+            <textarea id="se-list" rows="4" spellcheck="false" aria-label="My algorithms" placeholder="F R U R' U' F'&#10;F U R U' R' F'"></textarea>
+            <p class="label">Around each algorithm</p>
+            <label class="check" for="se-pre"><input type="checkbox" id="se-pre" /> Turn the top layer first (U, U', U2)</label>
+            <label class="check" for="se-post"><input type="checkbox" id="se-post" /> Turn the top layer after it</label>
+            <label class="check" for="se-rotate"><input type="checkbox" id="se-rotate" /> Also with the cube turned (y)</label>
+            <label class="check" for="se-repeat">Repeat up to
+              <select id="se-repeat"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select> times</label>
+            <p id="se-message" class="hint error" role="status"></p>
+            <div class="row">
+              <button id="se-save" type="button" class="primary">Save step</button>
+              <button id="se-cancel" type="button">Cancel</button>
+              <button id="se-delete" type="button" hidden>Delete step</button>
+            </div>
+          </section>
         </div>
         <h3>Options</h3>
         <label class="check" for="yellow">
@@ -72,10 +100,8 @@
           <input type="checkbox" id="lastlayer" />
           Last 3 corners on the last layer <span class="hint">(step 4 ends with the unsolved corners all in the top layer)</span>
         </label>
-        <h3>Algorithm sets <span class="hint">(for the steps of this method that use one)</span></h3>
-        <p id="algsets-none" class="hint" hidden>The steps of this method use no algorithm sets.</p>
-        <div id="algsets-selects" class="algsets"></div>
-        <p class="hint">Bundled sets come from Tao Yu's Alg Trainer. Import more as .json files made with <code>scripts/import-algsets.mjs</code>.</p>
+        <h3>Algorithm sets</h3>
+        <p class="hint">Bundled sets come from Tao Yu's Alg Trainer, Cubedex and zz-method-docs. Import more as .json files made with <code>scripts/import-algsets.mjs</code>; they can then be picked for any step in the step list.</p>
         <label class="file-button">Import a set… <input id="algset-file" type="file" accept=".json,application/json" multiple hidden /></label>
         <ul id="algset-imported" class="algset-imported"></ul>
         <p id="algset-status" class="hint"></p>

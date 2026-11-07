@@ -156,8 +156,33 @@ button.link { background: none; border: 0; padding: 0; color: var(--accent); tex
 .steps-editor { margin-top: 4px; }
 .steps-editor summary { cursor: pointer; color: var(--muted); font-size: .9rem; }
 .steps-list { list-style: decimal; padding-left: 1.4rem; margin: 6px 0; display: grid; gap: 4px; }
-.steps-list li { display: flex; gap: 6px; align-items: center; }
-.steps-list .step-label { flex: 1; min-width: 0; }
+.steps-list li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; }
+.steps-list .step-main { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; min-width: 0; }
+.steps-list .step-label { flex: 1 1 8em; min-width: 0; }
+.steps-list select.step-set { flex: 1 1 9em; width: auto; min-width: 0; padding: 3px 6px; }
+.steps-list .step-tools { display: flex; gap: 4px; }
+
+/* a cube net: 12 x 9 stickers (U above L F R B, D below); small in the step list, large in the step editor */
+.net { display: inline-grid; grid-template-columns: repeat(12, var(--s, 5px)); grid-template-rows: repeat(9, var(--s, 5px)); gap: 1px; flex: none; }
+.net .st { background: var(--line); border-radius: 1px; box-shadow: inset 0 0 0 .5px color-mix(in srgb, var(--ink) 30%, transparent); }
+.net .st.on { background: var(--c); }
+.net-edit { --s: 22px; gap: 2px; }
+.net-edit .st { border: 1px solid color-mix(in srgb, var(--ink) 25%, transparent); border-radius: 3px; padding: 0; min-width: 0; cursor: pointer; }
+.net-edit .st.center { cursor: default; }
+.net-edit button.st:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+@media (max-width: 420px) { .net-edit { --s: 17px; } }
+
+.step-editor { margin-top: 12px; border: 1px solid var(--accent); border-radius: 10px; padding: 10px 12px; display: grid; gap: 6px; }
+.step-editor h3 { margin: 0; }
+.step-editor .label { font-weight: 600; margin: 8px 0 0; }
+.step-editor input[type="text"], .step-editor textarea { width: 100%; font: inherit; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+.step-editor textarea { font-family: ui-monospace, monospace; }
+.step-editor .check { margin-top: 2px; flex-wrap: nowrap; align-items: center; }
+.step-editor .check select { width: auto; padding: 2px 6px; }
+.se-goal { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start; }
+.se-goals { display: flex; flex-direction: column; gap: 4px; }
+.se-goals button { padding: 3px 10px; font-size: .88rem; }
+.hint.error { color: var(--err); }
 .steps-list button { padding: 0 8px; min-width: 28px; line-height: 1.6; }
 
 .methods-box { margin: 10px 0 4px; border: 1px solid var(--line); border-radius: 10px; padding: 6px 12px; }

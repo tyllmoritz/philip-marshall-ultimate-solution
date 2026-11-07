@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node scripts/test.mjs 0 errors && node scripts/test.mjs 0 smartcube && node scripts/test.mjs 15 && node scripts/test.mjs 15 open-layer && node scripts/test.mjs 15 f2l && node scripts/test.mjs 15 yellow && node scripts/test.mjs 15 beginner-f2l && node scripts/test.mjs 10 preset=lbl && node scripts/test.mjs 10 preset=lbl-short && node scripts/test.mjs 10 preset=lbl-marshall && node scripts/test.mjs 15 preset=cfop && node scripts/test.mjs 10 preset=zz && node scripts/test.mjs 10 preset=zz-coll && node scripts/test.mjs 10 preset=zz-3look && node scripts/test.mjs 10 preset=zz-ocll-pll && node scripts/test.mjs 10 preset=roux",
+    "test": "node scripts/test.mjs 0 errors && node scripts/test.mjs 0 smartcube && node scripts/test.mjs 10 custom && node scripts/test.mjs 15 && node scripts/test.mjs 15 open-layer && node scripts/test.mjs 15 f2l && node scripts/test.mjs 15 yellow && node scripts/test.mjs 15 beginner-f2l && node scripts/test.mjs 10 preset=lbl && node scripts/test.mjs 10 preset=lbl-short && node scripts/test.mjs 10 preset=lbl-marshall && node scripts/test.mjs 15 preset=cfop && node scripts/test.mjs 10 preset=zz && node scripts/test.mjs 10 preset=zz-coll && node scripts/test.mjs 10 preset=zz-3look && node scripts/test.mjs 10 preset=zz-ocll-pll && node scripts/test.mjs 10 preset=roux",
     "profile": "node scripts/profile.mjs 40"
   },
   "keywords": [],

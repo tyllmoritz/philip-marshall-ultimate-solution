@@ -2,7 +2,8 @@ import { cube3x3x3 } from "cubing/puzzles";
 import { MarshallSolver } from "../src/engine/solver.js";
 import { buildMoveTables, FACES } from "../src/engine/cube.js";
 import { compose, flatSolved, flatFromMove, rotationOf, rotationWord, invertRotationWord, ROTATIONS } from "../src/engine/flat.js";
-import { solvedMask, unsolvedOnOneSide } from "../src/engine/solver.js";
+import { solvedMask, unsolvedOnOneSide, resolveStep } from "../src/engine/solver.js";
+import { compileGoal } from "../src/engine/goals.js";
 import { BUILT_IN_PRESETS, algsetCases } from "../src/engine/presets.js";
 import fs from "node:fs";
 const bundled = (name) => JSON.parse(fs.readFileSync(new URL(`../public/algsets/${name}.json`, import.meta.url), "utf8"));
@@ -67,33 +68,25 @@ function checkSteps(solver, scr, r, f2l, yellowTop, opts = {}) {
   if (masks[5] !== (1 << 20) - 1) return "step 6: not solved";
   return null;
 }
-// what a step must finish, in the original orientation: cross = edges 0-3, first layer corners 0-3, middle edges 8-11
-const pieceBits = (edges, corners) => edges.reduce((m, i) => m | (1 << i), 0) | corners.reduce((m, i) => m | (1 << (12 + i)), 0);
-const STEP_GOALS = {
-  "cross-optimal": pieceBits([0, 1, 2, 3], []), "cross-daisy": pieceBits([0, 1, 2, 3], []),
-  "lbl-corners": pieceBits([], [0, 1, 2, 3]), "lbl-middle": pieceBits([8, 9, 10, 11], []),
-  "cfop-f2l": pieceBits([8, 9, 10, 11], [0, 1, 2, 3]),
-  "zz-eoline": pieceBits([0, 2], []),
-  "zz-block-left": pieceBits([3, 11, 9], [2, 3]), "roux-fb": pieceBits([3, 11, 9], [2, 3]),
-  "zz-block-right": pieceBits([1, 10, 8], [1, 0]), "roux-sb": pieceBits([1, 10, 8], [1, 0]),
-};
 /** Any method: what a step finishes stays finished (cross, first layer, second layer), and the last step leaves the cube solved. */
-function genericCheck(scr, r) {
+function genericCheck(scr, r, defs = {}) {
   const flatOf = (alg) => {
     const t = kp.algToTransformation(alg).transformationData;
     return flatFromMove({ ep: Uint8Array.from(t.EDGES.permutation), eo: Uint8Array.from(t.EDGES.orientationDelta), cp: Uint8Array.from(t.CORNERS.permutation), co: Uint8Array.from(t.CORNERS.orientationDelta) });
   };
   const played = [...scr, ...r.setupRotation];
-  let required = 0;
+  const reachedBefore = []; // the goals of the steps so far: each must still be reached after every later step
   for (const [i, step] of r.steps.entries()) {
     played.push(...step.parts.flatMap((p) => p.moves));
     const turned = played.filter((m) => /^[xyz]/.test(m));
-    const mask = solvedMask(flatOf(played.join(" ") + " " + invertRotationWord(rotationWord(rotationOf(turned))).join(" ")));
-    if (required & ~mask) return `step ${i + 1} (${step.name}) undid something the steps before had finished`;
-    if (!step.id) return `step ${i + 1} (${step.name}) has no id`;
-    const goal = STEP_GOALS[step.id] ?? 0;
-    if (goal & ~mask) return `step ${i + 1} (${step.name}) did not finish what it is for`;
-    required |= goal;
+    const f = flatOf(played.join(" ") + " " + invertRotationWord(rotationWord(rotationOf(turned))).join(" "));
+    const inFrame = compose(compose(solver.flipFlat, f), solver.flipFlat); // goals are in the solver's frame (cube turned over)
+    if (reachedBefore.some((g) => !g.reached(inFrame))) return `step ${i + 1} (${step.name}) undid something the steps before had reached`;
+    const def = defs[step.id] ?? resolveStep(step.id ?? "").def;
+    if (!def) return `step ${i + 1} (${step.name}) has no definition`;
+    const goal = compileGoal(def.goal);
+    if (!goal.rule && !goal.reached(inFrame)) return `step ${i + 1} (${step.name}) did not reach its goal`;
+    if (!goal.rule) reachedBefore.push(goal);
   }
   const f = flatOf(played.join(" ") + " " + invertRotationWord(rotationWord(rotationOf(played.filter((m) => /^[xyz]/.test(m))))).join(" "));
   return solvedMask(f) === (1 << 20) - 1 ? null : "the last step does not leave the cube solved";
@@ -159,13 +152,35 @@ if (mode === "smartcube") {
   console.log(`${checked} solution moves checked (${layerMoves} wide or slice moves):`, bad ? bad + " wrong" : "the expected states match what a smart cube reports");
   process.exit(bad ? 1 : 0);
 }
+// mode "custom": steps made in the step editor (a sticker goal, algorithms from a list or a set) inside a method
+if (mode === "custom") {
+  const { cleanCustomStep } = await import("../src/engine/presets.js");
+  const { goalStickers } = await import("../src/engine/goals.js");
+  const f2l = goalStickers({ edges: [4, 5, 6, 7, 8, 9, 10, 11], corners: [4, 5, 6, 7] });
+  const edgesUp = cleanCustomStep({ id: "step-edges", label: "Yellow edges up", goal: { stickers: [...f2l, 1, 3, 5, 7] }, algorithms: [{ alg: "F R U R' U' F'" }, { alg: "F U R U' R' F'" }], pre: true, repeat: 2 });
+  const myPll = cleanCustomStep({ id: "step-pll", label: "My PLL", goal: { stickers: [...Array(54).keys()] }, set: "pll", pre: true, post: true });
+  const steps = ["cross-optimal", "cfop-f2l", { id: edgesUp.id, def: edgesUp }, "cfop-oll", { id: myPll.id, def: myPll, cases: algsets.pll }];
+  let bad = 0, worked = 0;
+  for (let i = 0; i < n; i++) {
+    const scr = Array.from({ length: 25 }, () => FACES[(random() * 6) | 0] + ["", "2", "'"][(random() * 3) | 0]);
+    const r = solver.solve(scr, { steps, yellowTop: true, algsets });
+    if (r.error) { bad++; console.log("FAIL", r.error, scr.join(" ")); continue; }
+    const problem = genericCheck(scr, r, { [edgesUp.id]: edgesUp, [myPll.id]: myPll });
+    if (problem) { bad++; console.log("STEP TARGET", problem, scr.join(" ")); continue; }
+    const names = r.steps.map((s) => s.name).join(" | ");
+    if (r.steps[2].count) worked++;
+    if (i < 2) console.log(names, "|", r.steps[2].parts.flatMap((p) => p.moves).join(" "));
+  }
+  console.log(`custom steps: ${n - bad} of ${n} solved, every goal reached; "Yellow edges up" did something in ${worked}`);
+  process.exit(bad ? 1 : 0);
+}
 // mode "errors": methods that cannot solve the cube say which step failed and why
 if (mode === "errors") {
   const scr = "R U F' L2 D B R' U2 F D' L B2 U R2 F'".split(" ");
   const cases = [
-    [["cross-optimal"], { code: "unsolved", step: 2, id: null }],
-    [["cross-optimal", "cfop-oll"], { code: "no-algs", step: 2, id: "cfop-oll" }],
-    [["roux-fb", "roux-lse"], { code: "stuck", step: 2, id: "roux-lse" }],
+    [["cross-optimal"], { code: "unsolved", step: 2, id: null, name: null }],
+    [["cross-optimal", "cfop-oll"], { code: "no-algs", step: 2, id: "cfop-oll", name: "OLL" }],
+    [["roux-fb", "roux-lse"], { code: "stuck", step: 2, id: "roux-lse", name: "Last six edges" }],
   ];
   let bad = 0;
   for (const [steps, want] of cases) {

@@ -4,7 +4,7 @@ import { TwistyPlayer } from "cubing/twisty";
 import { initSmartCube } from "./smartcube.js";
 import { initMethods } from "./methods-ui.js";
 import { initAlgsets } from "./algsets.js";
-import { neededKinds, errorText } from "./engine/presets.js";
+import { errorText } from "./engine/presets.js";
 
 window.marshallStarted = true; // the scripts loaded: the repair in index.html is not needed
 const startedAt = Date.now();
@@ -432,15 +432,9 @@ $("random").addEventListener("click", async () => {
   solve();
 });
 
-const methods = initMethods({ onChange: () => { showAlgsetKinds(); solve(); } });
 const algsets = initAlgsets({ onChange: () => solve() });
+const methods = initMethods({ onChange: () => solve(), algsets });
 const options = () => methods.options();
-/** the algorithm set drop-downs: only those the method's steps use */
-function showAlgsetKinds() {
-  const o = options();
-  algsets.showKinds(neededKinds(o.steps, o.f2l));
-}
-showAlgsetKinds();
 
 /** Solve whatever the scramble field and options say now; any calculation still running is aborted. */
 function solve() {
@@ -464,15 +458,11 @@ function solve() {
   $("result").classList.add("stale");
   show(scramble, []);
   current = { scramble, result: null };
-  const opts = options();
-  const request = { id: nextId, scramble, ...opts };
-  const kinds = neededKinds(opts.steps, opts.f2l);
-  if (kinds.length) {
-    // the algorithm sets the steps use travel with the request
-    const mine = nextId;
-    algsets.payload(kinds).then((sets) => { if (mine === nextId) dispatch({ ...request, algsets: sets }); })
-      .catch((err) => { if (mine === nextId) setStatus("Could not load the algorithm sets: " + err.message, true); });
-  } else dispatch(request);
+  // the steps travel with the request: your own steps with their definitions, every step with the algorithms of its set
+  const request = { id: nextId, scramble, ...options() };
+  const mine = nextId;
+  methods.requestSteps().then((steps) => { if (mine === nextId) dispatch({ ...request, steps }); })
+    .catch((err) => { if (mine === nextId) setStatus("Could not load the algorithm sets: " + err.message, true); });
 }
 
 let typing = null;
@@ -831,18 +821,9 @@ show(parseScramble($("scramble").value), []);
 newScramble().then((text) => {
   if (!current) { $("scramble").value = text; solve(); }
 });
-  const hadController = !!navigator.serviceWorker.controller;
 // solve the first scramble once a worker is ready
 if (!current) {
-  // a new version took over: this page's scripts may be gone from the cache and the server (the solver workers are started
-  // again on every new solve), so load the page again - at once if it has only just opened, else when the user is ready
-  navigator.serviceWorker.addEventListener("controllerchange", () => {
-    if (!hadController) return; // the first install, nothing changed
-    if (Date.now() - startedAt < 10000) location.reload();
-    else $("update").hidden = false;
-  });
   setStatus("Preparing solver…");
-$("update").addEventListener("click", () => location.reload());
 }
 
 // a click anywhere that is not a move drops the selection
@@ -850,8 +831,17 @@ document.addEventListener("click", (e) => { if (!e.target.closest?.(".mv")) clea
 
 // ---- installable, works offline (PWA) ----
 if ("serviceWorker" in navigator && import.meta.env.PROD) {
+  const hadController = !!navigator.serviceWorker.controller;
   navigator.serviceWorker.register("./sw.js").catch(() => {});
+  // a new version took over: this page's scripts may be gone from the cache and the server (the solver workers are started
+  // again on every new solve), so load the page again - at once if it has only just opened, else when the user is ready
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (!hadController) return; // the first install, nothing changed
+    if (Date.now() - startedAt < 10000) location.reload();
+    else $("update").hidden = false;
+  });
 }
+$("update").addEventListener("click", () => location.reload());
 let installPrompt = null;
 window.addEventListener("beforeinstallprompt", (e) => {
   e.preventDefault();

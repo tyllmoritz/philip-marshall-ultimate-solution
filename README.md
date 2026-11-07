@@ -274,19 +274,44 @@ Ready-made presets: CFOP, ZZ (ZBLL), ZZ (COLL + ELL), Roux, Marshall, Marshall w
 The *Method* box on the page selects one, shows its steps (reorder, remove, add) and lets you press **Save as…** to keep your own in the browser (`localStorage`, key `marshall-presets`; the method
 you are working on is `marshall-method`). If a custom method's steps do not leave the cube solved the page says so. `npm test` runs the beginner presets too (every step must keep what the steps before it finished).
 
+### Steps are data: a goal and an engine
+
+Every step in `STEP_LIBRARY` is a **goal** (the state it reaches, `src/engine/goals.js`) and an **engine** that gets there. A goal lists pieces that
+must be home, positions that must be oriented or hold their own corner, and stickers that must show their center's color, optionally "at least *n*
+of these"; Marshall's step 4 and key position are named rules. Goals are in the solver's frame (white cross on D, yellow on U). The engines:
+
+- **algorithms**: algorithms from a set or a list, with the top layer turned before and/or after them, optionally with the cube turned (`y`) and
+  repeated, applied until the goal is reached (OLL, PLL, ZBLL, COLL, ELL, OCLL, CP, EPLL, CMLL and the beginner steps).
+- **series**: Marshall's corner series with setup turns (yellow corners: position, all remaining corners).
+- **block**: iterative deepening with a move set (ZZ's blocks with R U L, Roux's blocks).
+- built-in engines for the steps that are searches or lookups of their own: the crosses, EOLine, LSE, the corner twist, CFOP's F2L and Marshall's steps.
+
+What a step keeps is not written per step any more: it is whatever the steps before it reached (their pieces that are home, and the orientation,
+placement and sticker conditions that held when the step started). The test checks every step's goal from its definition.
+
+A method's step is an id, or `{ id, set }` when an algorithm set was picked for it: every step that uses algorithms has its own set drop-down in the
+step list (a kind's last choice is the default for new steps), and the page sends each step's algorithms with the solve request. Each step in the
+list shows its goal on a small cube net.
+
+**Your own steps**: *Add a step… → New step…* opens the step editor: a name, the goal painted on a cube net (with shortcuts: white cross, first two
+layers, yellow top face, whole cube), the algorithms (a set, or your own list, one per line) and what may surround each algorithm (top layer turned
+before / after, cube turned, repeated up to n times). Steps are kept in the browser (`marshall-steps`), can be edited (✎) and deleted, and work in any
+method like the built-in ones. `npm test` solves with two of them (`node scripts/test.mjs 10 custom`): one from a list ("yellow edges up") and one
+from a set ("my PLL", goal: the whole cube).
+
 ## Methods & algorithms box and algorithm sets
 
 All method and algorithm settings sit in the collapsed *Methods & algorithms* box under the scramble: the method (preset, steps, save/delete), the options and the algorithm sets.
 The **OLL** and **PLL** steps use a set each. Bundled: `public/algsets/oll.json` and `pll.json`, made from *Tao Yu's Alg Trainer* with `scripts/import-algsets.mjs`
 (F2L 41 cases, OLL 57 / 227 algorithms, PLL 21 / 58, ZBLL 472, COLL 40, ELL 25, CMLL 42; credit to Tao Yu and the people named in his files). *Import a set…* adds more as `.json` files from the same script
-(kept in the browser; any set can then be picked for OLL or PLL). The effect of each algorithm on the pieces is computed by cubing.js, so wide moves (`r`), slices (`M`) and
+(kept in the browser; any set can then be picked for any step that uses algorithms). The effect of each algorithm on the pieces is computed by cubing.js, so wide moves (`r`), slices (`M`) and
 rotations that cancel (`x' ... x`) work; algorithms that would leave the cube turned are skipped. The importer treats a single letter like `E` as a name when its row holds other names.
 
 ### The page follows the method
 
 *How it works* lists the steps of the method in use, one sentence each (`explain` in `STEP_LIBRARY`). Options that only change some steps
 (F2L pairs, edge swaps at the open slot, last 3 corners on the last layer; `OPTION_STEPS`) are shown only when the method has one of those steps, and
-only the algorithm sets the method uses have a drop-down. The legend above the solution lists the kinds of moves the solution contains.
+only the steps that use algorithms have a set drop-down. The legend above the solution lists the kinds of moves the solution contains.
 
 If a method cannot solve a scramble, the message names the step that got stuck and what that step needs first (`needs` in
 `STEP_LIBRARY`), for example "Step 2 (Last six edges) could not be finished … It needs both blocks and the top corners (CMLL) first."

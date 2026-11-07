@@ -1,5 +1,7 @@
-// Algorithm sets for the OLL / PLL steps: the bundled ones (public/algsets, made from Tao Yu's Alg Trainer with
-// scripts/import-algsets.mjs) and sets imported from a .json file, kept in localStorage ("marshall-algsets").
+// Algorithm sets: the bundled ones (public/algsets, from Tao Yu's Alg Trainer, Cubedex and zz-method-docs, see
+// scripts/import-algsets.mjs and import-extra-algs.mjs) and sets imported from a .json file, kept in localStorage
+// ("marshall-algsets"). Each step of a method picks its set (methods-ui.js); a kind's default is the bundled set of that
+// kind, or the set last chosen for it ("marshall-algset-<kind>").
 import { algsetCases, ALGSET_KINDS } from "./engine/presets.js";
 
 const KEY_SETS = "marshall-algsets";
@@ -11,34 +13,24 @@ const read = (key, fallback) => {
 const write = (key, value) => {
   try { localStorage.setItem(key, typeof value === "string" ? value : JSON.stringify(value)); } catch {}
 };
+const readText = (key) => {
+  try { return localStorage.getItem(key); } catch { return null; }
+};
 
 export function initAlgsets({ onChange }) {
-  let bundled = []; // [{ slug, name, file }]
+  let bundled = []; // [{ slug, name, file, kind }]
   let imported = read(KEY_SETS, []); // [{ slug, name, set }]
   const cache = new Map(); // slug -> set (bundled ones are fetched when first needed)
-  const choice = Object.fromEntries(ALGSET_KINDS.map((k) => [k, localStorage.getItem(KEY_CHOICE(k)) ?? k]));
-  const box = document.getElementById("algsets-selects");
-  const rows = {}; // kind -> [label, select], hidden when the method does not use that kind
-  for (const kind of ALGSET_KINDS) {
-    const label = document.createElement("label");
-    label.htmlFor = "algset-" + kind;
-    label.textContent = kind.toUpperCase();
-    const sel = document.createElement("select");
-    sel.id = "algset-" + kind;
-    box.append(label, sel);
-    rows[kind] = [label, sel];
-  }
+  const choice = Object.fromEntries(ALGSET_KINDS.map((k) => [k, readText(KEY_CHOICE(k)) ?? k]));
 
-  const all = () => [...bundled.map((b) => ({ ...b, bundled: true })), ...imported];
+  // the list of bundled sets; everything that needs it waits for it
+  const ready = fetch("./algsets/index.json").then((r) => r.json()).then((list) => { bundled = list; }, () => { bundled = []; });
 
-  async function fetchBundled() {
-    try {
-      bundled = await (await fetch("./algsets/index.json")).json();
-    } catch { bundled = []; }
-    render();
-  }
+  /** Every set: { slug, name, kind (null for imported ones), bundled }. */
+  const all = () => [...bundled.map((b) => ({ slug: b.slug, name: b.name, kind: b.kind ?? null, bundled: true })), ...imported.map((s) => ({ slug: s.slug, name: s.name + " (imported)", kind: null, bundled: false }))];
 
   async function setOf(slug) {
+    await ready;
     const imp = imported.find((s) => s.slug === slug);
     if (imp) return imp.set;
     if (cache.has(slug)) return cache.get(slug);
@@ -49,16 +41,7 @@ export function initAlgsets({ onChange }) {
     return set;
   }
 
-  function render() {
-    for (const kind of ALGSET_KINDS) {
-      const sel = document.getElementById("algset-" + kind);
-      sel.replaceChildren();
-      // the bundled sets of this kind, and everything imported
-      const options = all().filter((s) => !s.bundled || s.kind === kind || !s.kind);
-      for (const s of options) sel.append(new Option(s.name + (s.bundled ? "" : " (imported)"), s.slug));
-      if (!options.some((s) => s.slug === choice[kind])) choice[kind] = options.find((s) => s.slug === kind)?.slug ?? options[0]?.slug ?? "";
-      sel.value = choice[kind];
-    }
+  function renderImported() {
     const list = document.getElementById("algset-imported");
     list.replaceChildren();
     for (const s of imported) {
@@ -71,20 +54,12 @@ export function initAlgsets({ onChange }) {
       b.addEventListener("click", () => {
         imported = imported.filter((x) => x.slug !== s.slug);
         write(KEY_SETS, imported);
-        render();
+        renderImported();
         onChange();
       });
       li.append(b);
       list.append(li);
     }
-  }
-
-  for (const kind of ALGSET_KINDS) {
-    document.getElementById("algset-" + kind).addEventListener("change", (e) => {
-      choice[kind] = e.target.value;
-      write(KEY_CHOICE(kind), choice[kind]);
-      onChange();
-    });
   }
 
   document.getElementById("algset-file").addEventListener("change", async (e) => {
@@ -97,28 +72,41 @@ export function initAlgsets({ onChange }) {
         const slug = "imported-" + name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
         imported = [...imported.filter((s) => s.slug !== slug), { slug, name, set }];
         write(KEY_SETS, imported);
-        status.textContent = `Imported ${name}: ${algsetCases(set, "x").length} cases.`;
+        status.textContent = `Imported ${name}: ${algsetCases(set, "x").length} cases. Pick it for a step in the step list.`;
       } catch (err) {
         status.textContent = `${file.name}: ${err.message}`;
       }
     }
     e.target.value = "";
-    render();
+    renderImported();
     onChange();
   });
 
-  fetchBundled();
+  renderImported();
   return {
-    /** show the drop-downs of these kinds only (the ones the method's steps use) */
-    showKinds(kinds) {
-      for (const kind of ALGSET_KINDS) for (const el of rows[kind]) el.hidden = !kinds.includes(kind);
-      document.getElementById("algsets-none").hidden = kinds.length > 0;
+    ready,
+    /** The sets a step of this kind can use: the bundled ones of the kind, then every imported one (any kind: null = all bundled). */
+    setsFor(kind) {
+      return all().filter((s) => !kind || !s.bundled || s.kind === kind || !s.kind);
     },
-    /** the sets the given kinds use: { oll: [{ label, algs }], ... } */
-    async payload(kinds = ALGSET_KINDS) {
-      const out = {};
-      for (const kind of kinds) out[kind] = algsetCases(await setOf(choice[kind]), kind);
-      return out;
+    /** The default set of a kind: the one chosen for it last, if it still exists. */
+    defaultFor(kind) {
+      return all().some((s) => s.slug === choice[kind]) ? choice[kind] : kind;
+    },
+    /** Remember a choice for a kind (the default for steps of that kind from now on). */
+    remember(kind, slug) {
+      if (!ALGSET_KINDS.includes(kind)) return;
+      choice[kind] = slug;
+      write(KEY_CHOICE(kind), slug);
+    },
+    /** The kind of a set (null for imported ones). */
+    kindOf(slug) {
+      return bundled.find((b) => b.slug === slug)?.kind ?? null;
+    },
+    /** The cases of a set as the solver wants them: [{ label, algs }]. */
+    async cases(slug) {
+      const set = await setOf(slug);
+      return algsetCases(set, this.kindOf(slug) ?? String(set?.name ?? "").split(/\s/)[0] ?? "");
     },
   };
 }
