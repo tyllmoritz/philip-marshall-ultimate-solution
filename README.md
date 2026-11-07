@@ -265,6 +265,16 @@ The **OLL** and **PLL** steps use a set each. Bundled: `public/algsets/oll.json`
 (kept in the browser; any set can then be picked for OLL or PLL). The effect of each algorithm on the pieces is computed by cubing.js, so wide moves (`r`), slices (`M`) and
 rotations that cancel (`x' ... x`) work; algorithms that would leave the cube turned are skipped. The importer treats a single letter like `E` as a name when its row holds other names.
 
+### The page follows the method
+
+*How it works* lists the steps of the method in use, one sentence each (`explain` in `STEP_LIBRARY`). Options that only change some steps
+(F2L pairs, edge swaps at the open slot, last 3 corners on the last layer; `OPTION_STEPS`) are shown only when the method has one of those steps, and
+only the algorithm sets the method uses have a drop-down. The legend above the solution lists the kinds of moves the solution contains.
+
+When a method cannot solve a scramble, the message names the step that could not be finished and what it needs before it (`needs` in
+`STEP_LIBRARY`), e.g. "Step 2 (Last six edges) could not be finished … It needs both blocks and the top corners (CMLL) first." - or that the steps
+end before the cube is solved, or that a step has no algorithm set. `npm test` checks these (`node scripts/test.mjs 0 errors`).
+
 ### F2L from the algorithm set
 
 The F2L step (CFOP's four pairs, and Marshall's three with the F2L option) now uses the bundled F2L set first: every algorithm of every case, for every slot (the cube is turned with `y`

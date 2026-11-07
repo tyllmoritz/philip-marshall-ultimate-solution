@@ -742,7 +742,7 @@ export class MarshallSolver {
       try {
         return { ...this.solveFrom({ moves: [], state: compose(compose(this.flipFlat, start), this.flipFlat), flipped: true, skip: true }, { ...options, yellowTop: true }), crossFace: "D" };
       } catch (e) {
-        return { error: e.message };
+        return { error: e.message, errorInfo: e.info ?? null };
       }
     }
     if (daisy) {
@@ -750,7 +750,7 @@ export class MarshallSolver {
       try {
         return { ...this.solveFrom(this.beginnerCross(start), { ...options, yellowTop: true }), crossFace: "D" };
       } catch (e) {
-        return { error: e.message };
+        return { error: e.message, errorInfo: e.info ?? null };
       }
     }
     const crosses = new Map();
@@ -765,10 +765,10 @@ export class MarshallSolver {
       try {
         return { ...this.solveFrom(cross, options), crossFace: yellowTop ? "D" : "U" };
       } catch (e) {
-        firstError ??= e.message;
+        firstError ??= e;
       }
     }
-    return { error: firstError };
+    return { error: firstError.message, errorInfo: firstError.info ?? null };
   }
 
   /**
@@ -1026,22 +1026,37 @@ export class MarshallSolver {
     const stageIds = (stepIds ?? MARSHALL_STEPS).filter((id) => !id.startsWith("cross-"));
     for (const id of stageIds) if (!builders[id]) throw new Error("unknown step " + id);
     const stages = stageIds.map((id) => builders[id]);
+    // the furthest step that could not be finished (stage index, stages.length = the cube is not solved at the end), for the error
+    let failure = null;
+    const fail = (i, code) => {
+      if (!failure || i >= failure.i) failure = { i, code };
+      throw new Error("stuck");
+    };
     const go = (i, s, ctx) => {
       if (i === stages.length) {
-        if (!partial && flatKey(s) !== flatKey(this.solvedFlat)) throw new Error("these steps do not solve the cube");
+        if (!partial && flatKey(s) !== flatKey(this.solvedFlat)) fail(i, "unsolved");
         return [];
       }
-      for (const c of stages[i](s, ctx)) {
+      let candidates;
+      try { candidates = stages[i](s, ctx); } catch (e) { fail(i, e.code ?? "stuck"); }
+      for (const c of candidates) {
         try {
           const centre = ((ctx.centre ?? 0) + centreTurns(c.parts.flatMap((p) => p.moves))) % 4; // how far the middle slice has been turned
           return [c, ...go(i + 1, c.state, { corners: c.corners ?? ctx.corners, pairs: c.pairs ?? ctx.pairs, centre })];
         } catch { /* try the next candidate */ }
       }
-      throw new Error("stuck");
+      fail(i, "stuck");
     };
     // turn the cube over (x2): the rest is solved with yellow on top, the cross layer below
     const flipped = cross.flipped ? cross.state : compose(compose(this.flipFlat, cross.state), this.flipFlat);
-    const chosen = go(0, flipped, { corners: [], pairs: 0, centre: 0 });
+    let chosen;
+    try {
+      chosen = go(0, flipped, { corners: [], pairs: 0, centre: 0 });
+    } catch {
+      // step numbers as shown: the cross (when there is one) is step 1
+      const info = { code: failure.code, step: failure.i + (cross.skip ? 1 : 2), id: stageIds[failure.i] ?? null };
+      throw Object.assign(new Error(info.code === "unsolved" ? "these steps do not solve the cube" : `step ${info.step} (${info.id}): ${info.code}`), { info });
+    }
     const rawSteps = [
       ...(cross.skip ? [] : [{ name: cross.name ?? "The Cross", parts: cross.parts ?? (cross.moves.length ? [{ kind: "turns", moves: cross.moves }] : []) }]),
       ...chosen.map((c) => ({ name: c.name, parts: c.parts })),
@@ -1137,7 +1152,7 @@ export class MarshallSolver {
 
   /** A step that applies algorithms of a set until `goal` is reached (OLL, PLL). */
   algsetStage(kind, cases, withPost, { target, goal, count, keep, rotate = false }) {
-    if (!cases?.length) throw new Error(`no ${kind.toUpperCase()} algorithms loaded`);
+    if (!cases?.length) throw Object.assign(new Error(`no ${kind.toUpperCase()} algorithms loaded`), { code: "no-algs" });
     return (s) => this.rank((pick) => {
       const r = this.climb(s, this.algsetTable(kind, cases, withPost, rotate), { target, goal, count, pick, keep });
       return { parts: this.actionsToParts(r.actions, "alg"), state: r.state };

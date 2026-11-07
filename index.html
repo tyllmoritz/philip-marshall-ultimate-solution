@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Marshall Solver — Rubik's Cube, two series</title>
-  <meta name="description" content="A Rubik's Cube solver that follows Philip Marshall's method: two short series, five steps." />
+  <title>Marshall Solver — Rubik's Cube, step by step</title>
+  <meta name="description" content="A Rubik's Cube solver that shows the solution step by step: Philip Marshall's method, CFOP, ZZ, Roux or layer by layer." />
   <meta name="theme-color" content="#1b5e9b" />
   <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
@@ -14,7 +14,7 @@
 <body>
   <header>
     <h1>Marshall Solver</h1>
-    <p class="sub">Solve a Rubik's Cube with Philip Marshall's method. <button id="install" type="button" class="link" hidden>Install as an app</button></p>
+    <p class="sub">Solve a Rubik's Cube step by step: Philip Marshall's method, CFOP, ZZ, Roux or layer by layer. <button id="install" type="button" class="link" hidden>Install as an app</button></p>
   </header>
 
   <main>
@@ -60,7 +60,8 @@
           <input type="checkbox" id="lastlayer" />
           Last 3 corners on the last layer <span class="hint">(step 4 ends with the unsolved corners all in the top layer)</span>
         </label>
-        <h3>Algorithm sets <span class="hint">(for the OLL, PLL, ZBLL, COLL, ELL and CMLL steps)</span></h3>
+        <h3>Algorithm sets <span class="hint">(for the steps of this method that use one)</span></h3>
+        <p id="algsets-none" class="hint" hidden>The steps of this method use no algorithm sets.</p>
         <div id="algsets-selects" class="algsets"></div>
         <p class="hint">Bundled sets come from Tao Yu's Alg Trainer. Import more as .json files made with <code>scripts/import-algsets.mjs</code>.</p>
         <label class="file-button">Import a set… <input id="algset-file" type="file" accept=".json,application/json" multiple hidden /></label>
@@ -127,15 +128,7 @@
 
     <section class="panel" id="result" hidden>
       <h2>Solution <span id="total"></span></h2>
-      <p class="legend">
-        <span class="chip edge" title="F R' F' R, its inverse R' F R F' and all their turned or mirrored forms such as R U R' U'">Hedgeslammer / Sledgehammer / sexy move</span>
-        <span class="chip corner" title="U R U' L' U R' U' L and its inverse">Niklas</span>
-        <span class="chip f2l">F2L algorithm</span>
-        <span class="chip alg">algorithm (beginner steps)</span>
-        <span class="chip setup">setup / undo turns</span>
-        <span class="chip turns">plain turns</span>
-        <span class="chip rotate">cube rotation</span>
-      </p>
+      <p id="legend" class="legend"></p>
       <div id="solution" class="solution">
         <div class="sol-head" title="Play the full solution">Full solution <span id="total2"></span></div>
         <ol id="steps"></ol>
@@ -143,16 +136,9 @@
     </section>
 
     <section class="panel about">
-      <h2>How it works</h2>
-      <ol>
-        <li><b>The Cross</b> — four top edges, found with a short search.</li>
-        <li><b>3 center section edge pieces / 3 F2L pairs</b> — the Edge Series (<b>Hedgeslammer</b> <code>F R' F' R</code>, inverse: Sledgehammer) cycles three edges; setup turns bring pieces into position and are undone afterwards. With <i>Partial F2L</i> on, three corner–edge pairs are inserted next to the cross instead (using standard <a href="https://www.rubiksplace.com/speedcubing/F2L-algorithms/">F2L algorithms</a>, or the series if that is shorter), so step 3 only has to finish the 5 remaining edges without disturbing them.</li>
-        <li><b>Top edge pieces</b> — series (with setup) until the <i>key position</i>: one middle-layer edge and two last-layer edges are wrong and a single Hedgeslammer / Sledgehammer / sexy move solves them. An aligning <code>U</code> turn may end this step.</li>
-        <li><b>Last three edge pieces</b> — that one series.</li>
-        <li><b>Five corner pieces</b> — until the last 2–3 corners share one side; the Corner Series (<b>Niklas</b>, <code>U R U' L' U R' U' L</code> and its mirrors/rotations) cycles three corners without touching any edge.</li>
-        <li><b>The End Game</b> — the last three corners fall into place together.</li>
-      </ol>
-      <p>Method and name: <a href="https://www.helm.lu/cube/MarshallPhilipp/">Philip Marshall's solution</a>. At each step the solver builds several candidate solutions (series with setup that place more pieces without disturbing finished ones) and keeps the one with the lowest movecount coefficient (MCC). It is an independent implementation, so move counts differ from the original write-up.</p>
+      <h2>How it works <span id="about-method" class="hint"></span></h2>
+      <ol id="about-steps"></ol>
+      <p>At each step the solver builds several candidate solutions (different first moves, series or algorithms that place more pieces without disturbing finished ones) and keeps the one with the lowest movecount coefficient (MCC), an estimate of how hard the moves are to execute. The name comes from <a href="https://www.helm.lu/cube/MarshallPhilipp/">Philip Marshall's solution</a>, the method it was first built for; this is an independent implementation, so move counts differ from his write-up.</p>
       <p>Credits: <a href="https://js.cubing.net/cubing/">cubing.js</a> (player, scrambler, solver for smart cube states), <a href="https://github.com/poliva/smartcube-web-bluetooth">smartcube-web-bluetooth</a> and <a href="https://github.com/poliva/cubedex">Cubedex</a> (Pau Oliva), <a href="https://github.com/afedotov/gan-web-bluetooth">gan-web-bluetooth</a> (Andy Fedotov), the <a href="https://github.com/trangium/trangium.github.io/tree/master/MovecountCoefficient">Movecount Coefficient</a> (Trangium), <a href="https://github.com/crystalcuber/zz-method-docs/tree/cubingmethods">zz-method-docs</a> (crystalcuber), Tao Yu's Alg Trainer and the people named in it, <a href="https://www.rubiksplace.com/speedcubing/F2L-algorithms/">rubiksplace.com</a>. This page's code is MIT licensed; <a href="./licenses.txt">licenses of everything it builds on</a>.</p>
     </section>
   </main>

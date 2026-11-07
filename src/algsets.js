@@ -18,6 +18,7 @@ export function initAlgsets({ onChange }) {
   const cache = new Map(); // slug -> set (bundled ones are fetched when first needed)
   const choice = Object.fromEntries(ALGSET_KINDS.map((k) => [k, localStorage.getItem(KEY_CHOICE(k)) ?? k]));
   const box = document.getElementById("algsets-selects");
+  const rows = {}; // kind -> [label, select], hidden when the method does not use that kind
   for (const kind of ALGSET_KINDS) {
     const label = document.createElement("label");
     label.htmlFor = "algset-" + kind;
@@ -25,6 +26,7 @@ export function initAlgsets({ onChange }) {
     const sel = document.createElement("select");
     sel.id = "algset-" + kind;
     box.append(label, sel);
+    rows[kind] = [label, sel];
   }
 
   const all = () => [...bundled.map((b) => ({ ...b, bundled: true })), ...imported];
@@ -107,6 +109,11 @@ export function initAlgsets({ onChange }) {
 
   fetchBundled();
   return {
+    /** show the drop-downs of these kinds only (the ones the method's steps use) */
+    showKinds(kinds) {
+      for (const kind of ALGSET_KINDS) for (const el of rows[kind]) el.hidden = !kinds.includes(kind);
+      document.getElementById("algsets-none").hidden = kinds.length > 0;
+    },
     /** the sets the given kinds use: { oll: [{ label, algs }], ... } */
     async payload(kinds = ALGSET_KINDS) {
       const out = {};

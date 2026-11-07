@@ -114,6 +114,23 @@ const lastLayer = mode.includes("layer");
 let f2lUsed = 0;
 const totals = [];
 let fail = 0;
+// mode "errors": methods that cannot solve the cube say which step failed and why
+if (mode === "errors") {
+  const scr = "R U F' L2 D B R' U2 F D' L B2 U R2 F'".split(" ");
+  const cases = [
+    [["cross-optimal"], { code: "unsolved", step: 2, id: null }],
+    [["cross-optimal", "cfop-oll"], { code: "no-algs", step: 2, id: "cfop-oll" }],
+    [["roux-fb", "roux-lse"], { code: "stuck", step: 2, id: "roux-lse" }],
+  ];
+  let bad = 0;
+  for (const [steps, want] of cases) {
+    const got = solver.solve(scr, { steps, algsets: {} }).errorInfo;
+    const ok = JSON.stringify(got) === JSON.stringify(want);
+    if (!ok) bad++;
+    console.log(ok ? "ok" : "WRONG", steps.join(","), JSON.stringify(got));
+  }
+  process.exit(bad ? 1 : 0);
+}
 console.log("seed", seed);
 const fixed = (REGRESSIONS[presetId] ?? []).map((s) => s.split(" "));
 for (let i = 0; i < fixed.length + n; i++) {

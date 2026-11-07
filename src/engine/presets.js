@@ -2,38 +2,72 @@
 //   { id, name, steps: [step ids], yellowTop, f2l, openSlot, lastLayer }
 // and the first step is always a cross. Custom presets are kept in the browser (see main.js).
 
+// hint: a few words for the step list; explain: a sentence for "How it works"; needs: what must be solved before the step
+// (shown when the step cannot be finished)
+const FIRST_TWO_LAYERS = "the first two layers";
 export const STEP_LIBRARY = [
-  { id: "cross-optimal", group: "Cross", label: "White cross (shortest)", hint: "the four white edges with the fewest moves" },
-  { id: "cross-daisy", group: "Cross", label: "White cross (daisy, then half turns)", hint: "beginner: daisy around the yellow centre, then 180° turns" },
-  { id: "lbl-corners", group: "Layer by layer", label: "First layer corners", hint: "R U R' U' repeated" },
-  { id: "lbl-middle", group: "Layer by layer", label: "Second layer edges", hint: "U R U' R' U' F' U F and its mirror" },
-  { id: "lbl-ycross", group: "Layer by layer", label: "Yellow cross", hint: "F R U R' U' F'" },
-  { id: "lbl-yedges", group: "Layer by layer", label: "Yellow edges", hint: "Sune / anti-Sune" },
-  { id: "lbl-ycorners-pos", group: "Layer by layer", label: "Yellow corners: position", hint: "Niklas" },
-  { id: "lbl-ycorners-twist", group: "Layer by layer", label: "Yellow corners: twist", hint: "R' D' R D repeated" },
-  { id: "marshall-mid", group: "Marshall", label: "3 center section edges / F2L pairs", hint: "edge series (or F2L pairs with the F2L option)" },
-  { id: "marshall-top", group: "Marshall", label: "Top edge pieces", hint: "edge series down to the key position" },
-  { id: "marshall-last", group: "Marshall", label: "Last three edge pieces", hint: "the one series from the key position" },
-  { id: "marshall-corners", group: "Marshall", label: "Five corner pieces", hint: "Niklas until the last 2-3 corners share a side" },
-  { id: "marshall-end", group: "Marshall", label: "The end game", hint: "one Niklas (or two)" },
-  { id: "cfop-f2l", group: "CFOP", label: "F2L (all four pairs)", hint: "corner-edge pairs by F2L algorithms" },
-  { id: "cfop-oll", group: "CFOP", label: "OLL", hint: "orient the last layer with the OLL algorithm set" },
-  { id: "cfop-pll", group: "CFOP", label: "PLL", hint: "permute the last layer with the PLL algorithm set" },
-  { id: "zz-eoline", group: "ZZ", label: "EOLine", hint: "orient every edge and place DF and DB" },
-  { id: "zz-block-left", group: "ZZ", label: "Left block (2x2x3)", hint: "with R, U and L only" },
-  { id: "zz-block-right", group: "ZZ", label: "Right block (2x2x3)", hint: "with R, U and L only" },
-  { id: "zz-ocll", group: "ZZ", label: "OCLL", hint: "orient the last layer corners (7 algorithms)" },
-  { id: "zz-cpll", group: "ZZ", label: "Corner permutation (CP)", hint: "permute the last layer corners (2 algorithms)" },
-  { id: "zz-epll", group: "ZZ", label: "EPLL", hint: "permute the last layer edges (4 algorithms)" },
-  { id: "zz-zbll", group: "ZZ", label: "ZBLL", hint: "the last layer in one algorithm from the ZBLL set" },
-  { id: "zz-coll", group: "ZZ", label: "COLL", hint: "the last layer's corners from the COLL set (edges stay oriented)" },
-  { id: "zz-ell", group: "ZZ", label: "ELL", hint: "the last layer's edges from the ELL set" },
-  { id: "roux-fb", group: "Roux", label: "First block (1x2x3)", hint: "the left block, any moves" },
-  { id: "roux-sb", group: "Roux", label: "Second block (1x2x3)", hint: "the right block with R, r, U and M" },
-  { id: "roux-cmll", group: "Roux", label: "CMLL", hint: "the last layer's corners from the CMLL set" },
-  { id: "roux-lse", group: "Roux", label: "Last six edges", hint: "with M and U only" },
-  { id: "edges-all", group: "Anything left", label: "All remaining edges (series)", hint: "edge series with setup, until all edges are home" },
-  { id: "corners-all", group: "Anything left", label: "All remaining corners (Niklas)", hint: "Niklas with setup, until the cube is solved" },
+  { id: "cross-optimal", group: "Cross", label: "White cross (shortest)", hint: "the four white edges with the fewest moves",
+    explain: "The four white edges around the white centre, found with a short search." },
+  { id: "cross-daisy", group: "Cross", label: "White cross (daisy, then half turns)", hint: "beginner: daisy around the yellow centre, then 180° turns",
+    explain: "The beginner way: first a daisy (the four white edges around the yellow centre, white facing up), then each edge is turned above its centre and dropped into the cross with a half turn." },
+  { id: "lbl-corners", group: "Layer by layer", label: "First layer corners", hint: "R U R' U' repeated",
+    explain: "Each white corner is brought above its slot and put in with R U R' U', repeated until it sits right.", needs: "the white cross" },
+  { id: "lbl-middle", group: "Layer by layer", label: "Second layer edges", hint: "U R U' R' U' F' U F and its mirror",
+    explain: "Each middle-layer edge is inserted from the top layer to the right (U R U' R' U' F' U F) or to the left (the mirror).", needs: "the white cross and the first layer corners" },
+  { id: "lbl-ycross", group: "Layer by layer", label: "Yellow cross", hint: "F R U R' U' F'",
+    explain: "F R U R' U' F' (once or twice) turns the yellow edges up into a cross.", needs: FIRST_TWO_LAYERS },
+  { id: "lbl-yedges", group: "Layer by layer", label: "Yellow edges", hint: "Sune / anti-Sune",
+    explain: "Sune or anti-Sune swaps the yellow edges until they match their side centres.", needs: "the first two layers and the yellow cross" },
+  { id: "lbl-ycorners-pos", group: "Layer by layer", label: "Yellow corners: position", hint: "Niklas",
+    explain: "Niklas cycles three yellow corners until all four sit in their places (twisted or not).", needs: "the first two layers and the yellow edges" },
+  { id: "lbl-ycorners-twist", group: "Layer by layer", label: "Yellow corners: twist", hint: "R' D' R D repeated",
+    explain: "R' D' R D, repeated, twists each yellow corner in place; the layers below look scrambled meanwhile and come back at the end.", needs: "everything but the twist of the yellow corners" },
+  { id: "marshall-mid", group: "Marshall", label: "3 center section edges / F2L pairs", hint: "edge series (or F2L pairs with the F2L option)",
+    explain: "The Edge Series (Hedgeslammer F R' F' R, inverse: Sledgehammer) cycles three edges; setup turns bring the pieces into position and are undone afterwards. With the F2L option, three corner-edge pairs go in next to the cross instead (F2L algorithms, or the series if that is shorter).", needs: "the white cross" },
+  { id: "marshall-top", group: "Marshall", label: "Top edge pieces", hint: "edge series down to the key position",
+    explain: "Edge series until the key position: one middle-layer edge and two last-layer edges are wrong and a single series solves them. An aligning U turn may end the step.", needs: "the white cross and three middle-layer edges (or F2L pairs)" },
+  { id: "marshall-last", group: "Marshall", label: "Last three edge pieces", hint: "the one series from the key position",
+    explain: "The one edge series that finishes the edges from the key position.", needs: "the key position (the step Top edge pieces)" },
+  { id: "marshall-corners", group: "Marshall", label: "Five corner pieces", hint: "Niklas until the last 2-3 corners share a side",
+    explain: "The Corner Series (Niklas, U R U' L' U R' U' L) cycles three corners without touching any edge, until the last 2-3 corners share one side.", needs: "all edges solved" },
+  { id: "marshall-end", group: "Marshall", label: "The end game", hint: "one Niklas (or two)",
+    explain: "The last corners fall into place together, usually with one Niklas after a rotation and a few setup turns.", needs: "all edges solved and the last corners on one side" },
+  { id: "cfop-f2l", group: "CFOP", label: "F2L (all four pairs)", hint: "corner-edge pairs by F2L algorithms",
+    explain: "The four corner-edge pairs go in next to the cross with F2L algorithms, completing the first two layers.", needs: "the white cross" },
+  { id: "cfop-oll", group: "CFOP", label: "OLL", hint: "orient the last layer with the OLL algorithm set",
+    explain: "One algorithm from the OLL set turns the whole last layer yellow side up.", needs: FIRST_TWO_LAYERS },
+  { id: "cfop-pll", group: "CFOP", label: "PLL", hint: "permute the last layer with the PLL algorithm set",
+    explain: "One algorithm from the PLL set moves the last-layer pieces into their places.", needs: "the first two layers and an oriented last layer" },
+  { id: "zz-eoline", group: "ZZ", label: "EOLine", hint: "orient every edge and place DF and DB",
+    explain: "Every edge is oriented and the two line edges (DF, DB) are placed, so the rest needs no F or B turns." },
+  { id: "zz-block-left", group: "ZZ", label: "Left block (2x2x3)", hint: "with R, U and L only",
+    explain: "The left 2x2x3 block, with R, U and L turns only (the edges stay oriented).", needs: "the EOLine" },
+  { id: "zz-block-right", group: "ZZ", label: "Right block (2x2x3)", hint: "with R, U and L only",
+    explain: "The right 2x2x3 block, again with R, U and L only, completing the first two layers.", needs: "the EOLine and the left block" },
+  { id: "zz-ocll", group: "ZZ", label: "OCLL", hint: "orient the last layer corners (7 algorithms)",
+    explain: "One of 7 algorithms turns the last-layer corners yellow side up (the edges already are).", needs: "the first two layers with all edges oriented" },
+  { id: "zz-cpll", group: "ZZ", label: "Corner permutation (CP)", hint: "permute the last layer corners (2 algorithms)",
+    explain: "One of 2 algorithms puts the last-layer corners in their places.", needs: "the first two layers and an oriented last layer" },
+  { id: "zz-epll", group: "ZZ", label: "EPLL", hint: "permute the last layer edges (4 algorithms)",
+    explain: "One of 4 algorithms puts the last-layer edges in their places.", needs: "everything but the last-layer edges' places" },
+  { id: "zz-zbll", group: "ZZ", label: "ZBLL", hint: "the last layer in one algorithm from the ZBLL set",
+    explain: "One algorithm from the ZBLL set solves the whole last layer.", needs: "the first two layers with all edges oriented" },
+  { id: "zz-coll", group: "ZZ", label: "COLL", hint: "the last layer's corners from the COLL set (edges stay oriented)",
+    explain: "One algorithm from the COLL set solves the last-layer corners and keeps the edges oriented.", needs: "the first two layers with all edges oriented" },
+  { id: "zz-ell", group: "ZZ", label: "ELL", hint: "the last layer's edges from the ELL set",
+    explain: "One algorithm from the ELL set solves the last-layer edges.", needs: "the first two layers and the last-layer corners" },
+  { id: "roux-fb", group: "Roux", label: "First block (1x2x3)", hint: "the left block, any moves",
+    explain: "The left 1x2x3 block, with any moves." },
+  { id: "roux-sb", group: "Roux", label: "Second block (1x2x3)", hint: "the right block with R, r, U and M",
+    explain: "The right 1x2x3 block, with R, r, U and M turns, so the first block stays put.", needs: "the first block" },
+  { id: "roux-cmll", group: "Roux", label: "CMLL", hint: "the last layer's corners from the CMLL set",
+    explain: "One algorithm from the CMLL set solves the four top corners; the middle slice may be disturbed.", needs: "both blocks" },
+  { id: "roux-lse", group: "Roux", label: "Last six edges", hint: "with M and U only",
+    explain: "The six remaining edges (and the centres), with M and U turns only.", needs: "both blocks and the top corners (CMLL)" },
+  { id: "edges-all", group: "Anything left", label: "All remaining edges (series)", hint: "edge series with setup, until all edges are home",
+    explain: "Edge series with setup turns until every edge is home." },
+  { id: "corners-all", group: "Anything left", label: "All remaining corners (Niklas)", hint: "Niklas with setup, until the cube is solved",
+    explain: "Niklas with setup turns until every corner is home - the cube is solved.", needs: "all edges solved" },
 ];
 
 const LBL_STEPS = ["lbl-corners", "lbl-middle", "lbl-ycross", "lbl-yedges", "lbl-ycorners-pos", "lbl-ycorners-twist"];
@@ -63,6 +97,23 @@ export const ALGSET_KINDS = ["f2l", "oll", "pll", "zbll", "coll", "ell", "cmll",
 export const neededKinds = (steps, f2l = false) => [...new Set([...steps.map((id) => STEP_ALGSET[id]), ...(f2l && steps.includes("marshall-mid") ? ["f2l"] : [])].filter(Boolean))];
 
 export const stepLabel = (id) => STEP_LIBRARY.find((s) => s.id === id)?.label ?? id;
+
+/** Options that only matter to some steps: the option is shown when the method has one of them. */
+export const OPTION_STEPS = {
+  f2l: ["marshall-mid"],
+  openSlot: ["marshall-top", "marshall-last", "edges-all"],
+  lastLayer: ["marshall-corners"],
+};
+
+/** A solver error as a sentence: which step could not be finished, and what it needs. */
+export function errorText({ error, errorInfo: info } = {}) {
+  if (!info) return "Could not solve: " + error;
+  if (info.code === "unsolved") return "The steps of this method end before the cube is solved. Add steps that finish it, e.g. All remaining edges and All remaining corners.";
+  const name = `Step ${info.step} (${stepLabel(info.id)})`;
+  if (info.code === "no-algs") return `${name} has no algorithms: choose an algorithm set for it under Methods & algorithms.`;
+  const needs = STEP_LIBRARY.find((s) => s.id === info.id)?.needs;
+  return `${name} could not be finished from where the steps before it leave the cube.` + (needs ? ` It needs ${needs} first.` : "");
+}
 
 /** A preset someone typed or stored: only known fields, known steps, a cross first. */
 export function cleanPreset(p) {

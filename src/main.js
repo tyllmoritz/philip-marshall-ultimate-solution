@@ -4,7 +4,7 @@ import { TwistyPlayer } from "cubing/twisty";
 import { initSmartCube } from "./smartcube.js";
 import { initMethods } from "./methods-ui.js";
 import { initAlgsets } from "./algsets.js";
-import { neededKinds } from "./engine/presets.js";
+import { neededKinds, errorText } from "./engine/presets.js";
 
 const $ = (id) => document.getElementById(id);
 const MOVE = /^[UDFBRL][2']?$/;
@@ -408,9 +408,15 @@ $("random").addEventListener("click", async () => {
   solve();
 });
 
-const methods = initMethods({ onChange: () => solve() });
+const methods = initMethods({ onChange: () => { showAlgsetKinds(); solve(); } });
 const algsets = initAlgsets({ onChange: () => solve() });
 const options = () => methods.options();
+/** the algorithm set drop-downs: only those the method's steps use */
+function showAlgsetKinds() {
+  const o = options();
+  algsets.showKinds(neededKinds(o.steps, o.f2l));
+}
+showAlgsetKinds();
 
 /** Solve whatever the scramble field and options say now; any calculation still running is aborted. */
 function solve() {
@@ -454,7 +460,7 @@ $("scramble").addEventListener("input", () => {
 function finish(result) {
   $("result").classList.remove("stale");
   if (result.error) {
-    setStatus("Could not solve: " + result.error, true);
+    setStatus(errorText(result), true);
     return;
   }
   current.result = result;
@@ -470,6 +476,28 @@ function finish(result) {
 
 const SERIES_KINDS = ["edge", "corner", "f2l", "turns", "daisy", "insert", "alg"];
 const KIND_LABEL = { alg: "algorithm", daisy: "daisy: white edges up around the yellow centre", insert: "half turn into the white cross", edge: "Hedgeslammer / Sledgehammer / sexy move (edge series)", corner: "Niklas (corner series)", setup: "setup / undo turns", undo: "undo", turns: "turns", rotate: "cube rotation", f2l: "F2L algorithm" };
+// the legend above the solution: [kind, text, tooltip], shown for the kinds the solution has
+const LEGEND = [
+  ["edge", "Hedgeslammer / Sledgehammer / sexy move", "F R' F' R, its inverse R' F R F' and all their turned or mirrored forms such as R U R' U'"],
+  ["corner", "Niklas", "U R U' L' U R' U' L and its inverse"],
+  ["f2l", "F2L algorithm", "inserts a corner-edge pair next to the cross"],
+  ["alg", "algorithm", "an algorithm of the method (from an algorithm set, or a beginner step)"],
+  ["daisy", "beginner cross", "the daisy, then half turns into the white cross"],
+  ["setup", "setup / undo turns", "bring the pieces into position before a series, and back after it"],
+  ["turns", "plain turns", "face turns that line up the pieces"],
+  ["rotate", "cube rotation", "turn the whole cube (not counted as a move)"],
+];
+
+function renderLegend(steps) {
+  const kinds = new Set(steps.flatMap((st) => st.parts.map((p) => (p.kind === "insert" ? "daisy" : p.kind === "undo" ? "setup" : p.kind))));
+  $("legend").replaceChildren(...LEGEND.filter(([kind]) => kinds.has(kind)).map(([kind, text, title]) => {
+    const chip = document.createElement("span");
+    chip.className = "chip " + kind;
+    chip.title = title;
+    chip.textContent = text;
+    return chip;
+  }));
+}
 
 /** What a part of the solution does, for the // comments in the player and its Twizzle link. */
 function describe(p, parts, k) {
@@ -517,6 +545,7 @@ function render({ scramble, result }) {
   $("result").hidden = false;
   $("total").textContent = `— ${result.total} moves`;
   $("total2").textContent = `— ${result.total} moves`;
+  renderLegend(result.steps);
   const ol = $("steps");
   ol.replaceChildren();
   layout = { steps: [], units: [] };

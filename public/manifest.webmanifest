@@ -1,7 +1,7 @@
 {
   "name": "Marshall Solver",
   "short_name": "Marshall",
-  "description": "A Rubik's Cube solver that follows Philip Marshall's method: two short series, step by step - with smart cube support.",
+  "description": "A Rubik's Cube solver that shows the solution step by step: Philip Marshall's method, CFOP, ZZ, Roux or layer by layer - with smart cube support.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

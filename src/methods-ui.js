@@ -1,6 +1,6 @@
 // The "Method" part of the page: a preset (ready-made or your own), its steps, and the options. Custom presets live in
 // localStorage ("marshall-presets"); the method being worked on is remembered too ("marshall-method").
-import { BUILT_IN_PRESETS, STEP_LIBRARY, START_STEPS, cleanPreset, stepLabel } from "./engine/presets.js";
+import { BUILT_IN_PRESETS, STEP_LIBRARY, START_STEPS, OPTION_STEPS, cleanPreset, stepLabel } from "./engine/presets.js";
 
 const $ = (id) => document.getElementById(id);
 const KEY_PRESETS = "marshall-presets";
@@ -91,6 +91,11 @@ export function initMethods({ onChange }) {
     $("f2l").checked = method.f2l;
     $("openslot").checked = method.openSlot;
     $("lastlayer").checked = method.lastLayer;
+    // options that only change some steps are shown when the method has one of them
+    for (const [id, field] of [["f2l", "f2l"], ["openslot", "openSlot"], ["lastlayer", "lastLayer"]]) {
+      $(id).closest("label").hidden = !OPTION_STEPS[field].some((s) => method.steps.includes(s));
+    }
+    renderAbout();
     const add = $("step-add");
     add.replaceChildren(new Option("Add a step…", ""));
     for (const g of [...new Set(STEP_LIBRARY.filter((s) => s.group !== "Cross").map((s) => s.group))]) {
@@ -98,6 +103,21 @@ export function initMethods({ onChange }) {
       og.label = g;
       for (const s of STEP_LIBRARY.filter((x) => x.group === g)) og.append(new Option(s.label, s.id));
       add.append(og);
+    }
+  }
+
+  /** "How it works": the steps of the method in use, one sentence each. */
+  function renderAbout() {
+    $("about-method").textContent = "- " + method.name;
+    const list = $("about-steps");
+    list.replaceChildren();
+    for (const id of method.steps) {
+      const step = STEP_LIBRARY.find((s) => s.id === id);
+      const li = document.createElement("li");
+      const name = document.createElement("b");
+      name.textContent = stepLabel(id);
+      li.append(name, " — " + (step?.explain ?? step?.hint ?? ""));
+      list.append(li);
     }
   }
 
