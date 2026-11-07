@@ -234,8 +234,16 @@ Both are remembered in the browser and re-solve on change.
 
 ## Rotations at the ends
 
-Rotations before the first move of the solution (the `x2` of "Yellow on top from the start") are part of the setup - how the cube is held to begin with - and the player's setup alg and the Twizzle link include them.
+Rotations before the first move of the solution (the `x2` of "Yellow on top from the start", or of CFOP's cross on the bottom) are how the cube is held to begin with. The player shows the scramble as you hold it after scrambling and plays that turn ahead of move 1 (in the alg, not hidden in the setup), so you see it; the Twizzle link does the same.
 Rotations after the last move are dropped: a solved cube can be put down any way up (the result still carries the rotation that would undo them, which the tests use).
+
+While the cube turns as a whole (before move 1, and at every `x`, `y`, `z`), a line over the cube says which way (`y` turns like `U`) and which colours are on top and in front afterwards.
+Drag the cube to look at it from another side and a small cube in the corner keeps the usual view, the way you hold the cube; click it to turn the view back.
+
+### Centers
+
+The solver tracks pieces against the corners, so wide and slice moves (`r`, `M`) leave the centers behind. A solve only counts when the centers are home again (`centresHome`), and the tests check the centers too.
+Scrambles may contain wide moves (`r` or `Rw`), slices (`M E S`) and rotations (`x y z`): the solver gets the face turns that give the same state seen from the centers (`cubeFrameMoves`), the player shows the scramble as typed and turns the cube back before move 1. The smart cube test also replays random sequences of every wide move, slice and rotation and compares them with what the cube reports.
 
 ## Install and offline (PWA)
 

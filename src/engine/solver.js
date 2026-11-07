@@ -330,6 +330,16 @@ export class MarshallSolver {
     this.buildCrossTable();
   }
 
+  /**
+   * The pieces are tracked against the corners, so wide and slice moves (r, M) leave the centres behind: a solve is only
+   * done when they are home again. Whole-cube rotations (x, y, z) are fine, they are turned back at the end.
+   */
+  centresHome(moves) {
+    if (!moves.some((m) => /^[rlfbudMES]/.test(m))) return true;
+    const back = invertRotationWord(rotationWord(rotationOf(moves.filter((m) => /^[xyz]/.test(m)))));
+    return this.kpuzzle.algToTransformation([...moves, ...back].join(" ")).transformationData.CENTERS.permutation.every((p, i) => p === i);
+  }
+
   run(flat, moves) {
     let s = flat;
     for (const m of moves) s = compose(s, this.flatMoves[m] ?? this.extraFlat[m]);
@@ -1008,15 +1018,16 @@ export class MarshallSolver {
     };
     const go = (i, s, ctx) => {
       if (i === stages.length) {
-        if (!partial && flatKey(s) !== flatKey(this.solvedFlat)) fail(i, "unsolved");
+        if (!partial && (flatKey(s) !== flatKey(this.solvedFlat) || !this.centresHome(ctx.moves))) fail(i, "unsolved");
         return [];
       }
       let candidates;
       try { candidates = stages[i](s, ctx); } catch (e) { fail(i, e.code ?? "stuck"); }
       for (const c of candidates) {
         try {
-          const centre = ((ctx.centre ?? 0) + centreTurns(c.parts.flatMap((p) => p.moves))) % 4; // how far the middle slice has been turned
-          return [c, ...go(i + 1, c.state, { corners: c.corners ?? ctx.corners, pairs: c.pairs ?? ctx.pairs, centre })];
+          const moves = c.parts.flatMap((p) => p.moves);
+          const centre = ((ctx.centre ?? 0) + centreTurns(moves)) % 4; // how far the middle slice has been turned
+          return [c, ...go(i + 1, c.state, { corners: c.corners ?? ctx.corners, pairs: c.pairs ?? ctx.pairs, centre, moves: [...ctx.moves, ...moves] })];
         } catch { /* try the next candidate */ }
       }
       fail(i, "stuck");
@@ -1025,7 +1036,7 @@ export class MarshallSolver {
     const flipped = cross.flipped ? cross.state : compose(compose(this.flipFlat, cross.state), this.flipFlat);
     let chosen;
     try {
-      chosen = go(0, flipped, { corners: [], pairs: 0, centre: 0 });
+      chosen = go(0, flipped, { corners: [], pairs: 0, centre: 0, moves: [] });
     } catch {
       // step numbers as shown: the cross (when there is one) is step 1
       const info = { code: failure.code, step: failure.i + (cross.skip ? 1 : 2), id: stageIds[failure.i] ?? null, name: stageRefs[failure.i]?.def.label ?? null };

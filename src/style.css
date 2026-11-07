@@ -36,7 +36,7 @@ button.primary { background: var(--accent); color: #fff; border-color: var(--acc
 .player-panel > * { max-width: 100%; }
 /* like the ZZ docs: let cubing size the player itself, only cap it to the container */
 #player { width: 100%; max-width: 600px; }
-#player twisty-player { width: 100%; max-width: 100%; }
+#player > twisty-player { width: 100%; max-width: 100%; }
 .player-panel { overflow: hidden; }
 .chip { max-width: 100%; overflow-wrap: anywhere; }
 .step-head { flex-wrap: wrap; gap: 0 12px; }
@@ -195,3 +195,14 @@ button.link { background: none; border: 0; padding: 0; color: var(--accent); tex
 .file-button { display: inline-block; font-weight: 400; padding: 6px 12px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; background: var(--panel); }
 .algset-imported { margin: 6px 0; padding-left: 1.2rem; }
 .algset-imported button { padding: 0 8px; line-height: 1.5; }
+/* whole-cube turns: what to do, over the bottom of the cube */
+#player { position: relative; }
+.turn-hint { position: absolute; left: 50%; bottom: 6px; transform: translateX(-50%); z-index: 2; width: max-content; max-width: calc(100% - 16px);
+  padding: 4px 12px; border-radius: 999px; background: color-mix(in srgb, var(--panel) 88%, transparent); border: 1px solid var(--line);
+  font-size: .85rem; text-align: center; pointer-events: none; }
+/* the cube as you hold it, while the big one is turned by hand */
+.mini { position: absolute; right: 4px; top: 4px; z-index: 2; width: clamp(84px, 22%, 130px); padding: 2px 2px 4px; display: grid; justify-items: center;
+  background: color-mix(in srgb, var(--panel) 85%, transparent); border-radius: 10px; }
+.mini twisty-player { width: 100%; aspect-ratio: 1; height: auto; pointer-events: none; }
+.mini-label { font-size: .75rem; color: var(--muted); line-height: 1.2; }
+.mini[hidden], .turn-hint[hidden] { display: none; }

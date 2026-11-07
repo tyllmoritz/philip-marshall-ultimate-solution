@@ -5,11 +5,13 @@ import { initSmartCube } from "./smartcube.js";
 import { initMethods } from "./methods-ui.js";
 import { initAlgsets } from "./algsets.js";
 import { errorText } from "./engine/presets.js";
+import { rotationOf, rotationWord, invertRotationWord } from "./engine/flat.js";
+import { cubeFrameMoves, rotationsIn, isRotation } from "./cubeframe.js";
 
 window.marshallStarted = true; // the scripts loaded: the repair in index.html is not needed
 const startedAt = Date.now();
 const $ = (id) => document.getElementById(id);
-const MOVE = /^[UDFBRL][2']?$/;
+const MOVE = /^[UDFBRLudfbrlMESxyz][2']?$/;
 
 const player = new TwistyPlayer({
   puzzle: "3x3x3",
@@ -19,6 +21,40 @@ const player = new TwistyPlayer({
   hintFacelets: "none",
 });
 $("player").appendChild(player);
+
+// a small cube in the usual view: shown while the big one has been turned by hand (drag), a click turns that back
+const mini = new TwistyPlayer({ puzzle: "3x3x3", visualization: "3D", background: "none", controlPanel: "none", hintFacelets: "none" });
+$("mini").prepend(mini);
+let loaded = { setup: "", alg: "" }; // what the player shows (it cannot be read back from cubing.js)
+let home = null; // the camera the player starts with
+let miniOn = false;
+/** Show setup + alg on the player (and the small cube). */
+function load(setup, alg) {
+  loaded = { setup, alg };
+  player.experimentalSetupAlg = setup;
+  player.alg = alg;
+  if (miniOn) syncMini();
+}
+function syncMini() {
+  mini.experimentalSetupAlg = loaded.setup;
+  mini.alg = loaded.alg;
+  mini.timestamp = lastTs;
+}
+player.experimentalModel.twistySceneModel.orbitCoordinates.addFreshListener((c) => {
+  if (!c) return;
+  home ??= { latitude: c.latitude, longitude: c.longitude };
+  const dLon = Math.abs(((c.longitude - home.longitude) % 360 + 540) % 360 - 180);
+  const off = Math.abs(c.latitude - home.latitude) > 20 || dLon > 20;
+  if (off === miniOn) return;
+  miniOn = off;
+  $("mini").hidden = !off;
+  if (off) syncMini();
+});
+$("mini").addEventListener("click", () => {
+  if (!home) return;
+  player.cameraLatitude = home.latitude;
+  player.cameraLongitude = home.longitude;
+});
 
 // Two solver workers: a solve in progress is aborted by terminating its worker, while the spare
 // (already initialised) takes the new request; a fresh spare is started in the background.
@@ -64,7 +100,11 @@ function setStatus(text, isError = false) {
   el.classList.toggle("error", isError);
 }
 
-/** Scramble text -> face turns, via cubing's alg parser (comments, groupings, commutators, repeats all work). */
+/**
+ * Scramble text -> face turns, via cubing's alg parser (comments, groupings, commutators, repeats all work). Wide and slice
+ * moves and rotations are allowed: the solver gets the face turns that give the same state seen from the centers (the cube
+ * held as usual), `.typed` keeps the moves as written for the player.
+ */
 function parseScramble(text) {
   let alg;
   try {
@@ -72,9 +112,11 @@ function parseScramble(text) {
   } catch (err) {
     throw new Error("Could not read the scramble: " + err.message);
   }
-  const moves = [...alg.expand().experimentalLeafMoves()].map((m) => m.toString().replace("2'", "2"));
-  const bad = moves.find((m) => !MOVE.test(m));
-  if (bad) throw new Error(`Unsupported move "${bad}". Use U D F B R L with ' or 2.`);
+  const typed = [...alg.expand().experimentalLeafMoves()].map((m) => m.toString().replace("2'", "2").replace(/^([UDFBRL])w/, (_, f) => f.toLowerCase()));
+  const bad = typed.find((m) => !MOVE.test(m));
+  if (bad) throw new Error(`Unsupported move "${bad}". Use U D F B R L with ' or 2 (also wide moves like r or Rw, slices M E S, rotations x y z).`);
+  const moves = cubeFrameMoves(typed);
+  moves.typed = typed;
   return moves;
 }
 
@@ -155,6 +197,7 @@ function startAt(ts) {
 
 /** The move boundary nearest to ts (in ms): a pause or a jump never leaves the cube halfway through a turn. */
 function snapMs(ts) {
+  if (ts < view.cum[0]) return ts < view.cum[0] / 2 ? 0 : view.cum[0]; // the turn before the first move
   const k = startAt(ts) - view.from;
   const a = view.cum[k], b = view.cum[k + 1] ?? a;
   return ts - a < b - ts ? a : b;
@@ -309,12 +352,34 @@ function onTime(ts) {
     const k = g - view.from;
     lineTokens().forEach((x, i) => x.classList.toggle("now", i === k));
   }
-  if (ts > 0 && !view.custom) {
-    // the solution list lights up only while the solution itself is playing (not during step 0)
+  turnHint(ts, g);
+  if (ts > 0 && ts >= view.cum[0] - 1 && !view.custom) {
+    // the solution list lights up only while the solution itself is playing (not during step 0 or the turn before move 1)
     lit = g;
     document.querySelector(`.mv[data-i="${g}"]`)?.classList.add("now");
   }
   markActive(g);
+  if (miniOn) mini.timestamp = ts;
+}
+
+// ---- whole-cube turns: a line over the cube says which way, and how the cube is held after it ----
+const COLOUR = { U: "white", F: "green", R: "red", D: "yellow", L: "orange", B: "blue" };
+const ROTATE_LIKE = { x: "R", y: "U", z: "F" };
+/** The colours on top and in front after solution move g (-1: before the first move); wide and slice moves turn the centers too. */
+function heldAs(g) {
+  const rot = rotationsIn([...(current.result.setupRotation ?? []), ...current.result.solution.slice(0, g + 1)]);
+  const frame = rot.length ? rotationOf(rot) : { U: "U", F: "F" };
+  return `${COLOUR[frame.U]} on top, ${COLOUR[frame.F]} in front`;
+}
+function turnHint(ts, g) {
+  let text = "";
+  if (view && !view.custom && current?.result) {
+    const m = view.moves[g - view.from];
+    if (ts < view.cum[0] - 1) text = `${view.lead.join(" ")}: turn the whole cube first (${heldAs(-1)})`;
+    else if (m && isRotation(m)) text = `${m}: turn the whole cube like ${ROTATE_LIKE[m[0]]}${m.slice(1)} (${heldAs(g)})`;
+  }
+  $("turn-hint").textContent = text;
+  $("turn-hint").hidden = !text;
 }
 // the highlight, borders and progress bar follow the animation (and the scrubber)
 player.experimentalModel.detailedTimelineInfo.addFreshListener((info) => onTime(info.timestamp));
@@ -331,28 +396,33 @@ function show(setupMoves, algMoves) {
   win = null;
   wantPlay = false;
   cancelHold();
-  player.experimentalSetupAlg = setupMoves.join(" ");
-  player.alg = algMoves.join(" ");
+  load(setupMoves.join(" "), algMoves.join(" "));
   player.timestamp = "start";
+  $("turn-hint").hidden = true;
   clearHighlight();
   document.querySelectorAll(".active").forEach((e) => e.classList.remove("active"));
   setControls(false);
 }
 
-/** Load the full solution (with // comments explaining every part) into the player. */
+/**
+ * Load the full solution (with // comments explaining every part) into the player. The scramble is shown as typed; the
+ * whole-cube turn before the first move (undoing the scramble's own rotations, then holding the cube as the solution
+ * wants it, e.g. x2 for the cross on the bottom) is played as well, ahead of move 1.
+ */
 function useSolution() {
   const { scramble, result } = current;
-  const cum = [0];
+  const typed = scramble.typed ?? scramble;
+  const lead = rotationWord(rotationOf([...invertRotationWord(rotationWord(rotationOf(rotationsIn(typed)))), ...(result.setupRotation ?? [])]));
+  const cum = [lead.reduce((ms, m) => ms + moveMs(m), 0)];
   for (const m of result.solution) cum.push(cum[cum.length - 1] + moveMs(m));
-  view = { from: 0, to: result.solution.length, moves: result.solution, cum };
-  const alg = annotate(result.steps, 0, result.solution.length);
-  player.experimentalSetupAlg = [...scramble, ...(result.setupRotation ?? [])].join(" ");
-  player.alg = alg;
+  view = { from: 0, to: result.solution.length, moves: result.solution, cum, lead };
+  const alg = (lead.length ? `${lead.join(" ")} // Before the first move: turn the whole cube, ${heldAs(-1)}\n\n` : "") + annotate(result.steps, 0, result.solution.length);
+  load(typed.join(" "), alg);
   player.timestamp = "start";
   clearHighlight();
   $("progress").max = cum[cum.length - 1];
   $("progress").value = 0;
-  $("twizzle").href = "https://alpha.twizzle.net/edit/?" + new URLSearchParams({ alg, "setup-alg": [...scramble, ...(result.setupRotation ?? [])].join(" ") });
+  $("twizzle").href = "https://alpha.twizzle.net/edit/?" + new URLSearchParams({ alg, "setup-alg": typed.join(" ") });
   $("twizzle").classList.remove("disabled");
 }
 
@@ -365,10 +435,9 @@ function useRange(from, to) {
   const moves = result.solution.slice(from, to);
   const cum = [0];
   for (const m of moves) cum.push(cum[cum.length - 1] + moveMs(m));
-  view = { from, to, moves, cum };
+  view = { from, to, moves, cum, lead: [] };
   scope = null;
-  player.experimentalSetupAlg = [...scramble, ...(result.setupRotation ?? []), ...result.solution.slice(0, from)].join(" ");
-  player.alg = annotate(result.steps, from, to);
+  load([...scramble, ...(result.setupRotation ?? []), ...result.solution.slice(0, from)].join(" "), annotate(result.steps, from, to));
   player.timestamp = "start";
   clearHighlight();
   $("progress").max = cum[cum.length - 1];
@@ -381,10 +450,9 @@ function useRange(from, to) {
 function useCustom(setup, moves) {
   const cum = [0];
   for (const m of moves) cum.push(cum[cum.length - 1] + moveMs(m));
-  view = { from: 0, to: moves.length, moves, cum, custom: true };
+  view = { from: 0, to: moves.length, moves, cum, custom: true, lead: [] };
   scope = null;
-  player.experimentalSetupAlg = setup;
-  player.alg = moves.join(" ");
+  load(setup, moves.join(" "));
   player.timestamp = "start";
   clearHighlight();
   document.querySelectorAll(".active").forEach((e) => e.classList.remove("active"));
@@ -456,7 +524,7 @@ function solve() {
   }
   setStatus("Solving…");
   $("result").classList.add("stale");
-  show(scramble, []);
+  show(scramble.typed, []);
   current = { scramble, result: null };
   // the steps travel with the request: your own steps with their definitions, every step with the algorithms of its set
   const request = { id: nextId, scramble, ...options() };
@@ -817,7 +885,7 @@ const smart = initSmartCube({
 });
 
 $("scramble").value = randomScramble().join(" ");
-show(parseScramble($("scramble").value), []);
+show(parseScramble($("scramble").value).typed, []);
 newScramble().then((text) => {
   if (!current) { $("scramble").value = text; solve(); }
 });

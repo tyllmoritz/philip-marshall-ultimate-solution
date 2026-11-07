@@ -117,7 +117,10 @@
       </div>
       <button id="bt-take" class="algo-take" type="button" title="Take the cube's present state as the scramble" hidden>Use current scramble</button>
       <div class="cubes">
-        <div id="player"></div>
+        <div id="player">
+          <div id="turn-hint" class="turn-hint" role="status" hidden></div>
+          <button id="mini" class="mini" type="button" title="The cube as you hold it. Click to turn the view back" hidden><span class="mini-label">As you hold it</span></button>
+        </div>
         <figure id="bt-live-wrap" hidden>
           <div id="bt-live" class="bt-cube"></div>
           <figcaption>Your cube</figcaption>

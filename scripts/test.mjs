@@ -149,7 +149,16 @@ if (mode === "smartcube") {
       }
     }
   }
-  console.log(`${checked} solution moves checked (${layerMoves} wide or slice moves):`, bad ? bad + " wrong" : "the expected states match what a smart cube reports");
+  // every wide move, slice and rotation in every amount, in random sequences with face turns
+  const LAYERS = ["x", "y", "z", "r", "l", "u", "d", "f", "b", "M", "E", "S"];
+  for (let i = 0; i < 200; i++) {
+    const seq = Array.from({ length: 12 }, () => (random() < 0.5 ? LAYERS[(random() * LAYERS.length) | 0] : FACES[(random() * 6) | 0]) + ["", "2", "'"][(random() * 3) | 0]);
+    const cube = cubeFrameMoves(seq);
+    const truth = kp.defaultPattern().applyAlg(seq.join(" "));
+    checked++;
+    if (!same(kp.defaultPattern().applyAlg(cube.join(" ")), coreView(truth))) { bad++; console.log("WRONG sequence", seq.join(" ")); }
+  }
+  console.log(`${checked} solution moves and sequences checked (${layerMoves} wide or slice moves):`, bad ? bad + " wrong" : "the expected states match what a smart cube reports");
   process.exit(bad ? 1 : 0);
 }
 // mode "custom": steps made in the step editor (a sticker goal, algorithms from a list or a set) inside a method
@@ -203,7 +212,7 @@ for (let i = 0; i < fixed.length + n; i++) {
   if (r.error) { fail++; console.log("FAIL", r.error, scr.join(" ")); continue; }
   // verify with cubing
   const alg = scr.join(" ") + " " + r.setupRotation.join(" ") + " " + r.solution.join(" ") + " " + r.restoreRotation.join(" ");
-  const td = kp.algToTransformation(alg).transformationData; const ok = td.EDGES.permutation.every((p,i)=>p===i) && td.EDGES.orientationDelta.every(o=>!o) && td.CORNERS.permutation.every((p,i)=>p===i) && td.CORNERS.orientationDelta.every(o=>!o);
+  const td = kp.algToTransformation(alg).transformationData; const ok = td.EDGES.permutation.every((p,i)=>p===i) && td.EDGES.orientationDelta.every(o=>!o) && td.CORNERS.permutation.every((p,i)=>p===i) && td.CORNERS.orientationDelta.every(o=>!o) && td.CENTERS.permutation.every((p,i)=>p===i); // centres home too (r and M move them)
   if (!ok) { fail++; console.log("WRONG", scr.join(" ")); }
   // every step must leave the cube in its target state
   const problems = preset && !/^marshall(-f2l)?$/.test(preset.id) ? genericCheck(scr, r) : checkSteps(solver, scr, r, f2l, yellowTop, { openSlot, lastLayer });
