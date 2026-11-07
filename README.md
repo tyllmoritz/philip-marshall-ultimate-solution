@@ -201,6 +201,11 @@ Clicking an algorithm sets it to `alg`, a step to `step`, the outer border to `a
 A half turn done as two quarter turns is not a mistake, in either direction: the cube sitting at the first quarter (`L` or `L'` for an expected `L2`) is shown as still on the path.
 Only another move after that quarter turn counts as one (and then the quarter turn is part of what is taken back).
 
+The cube never stops halfway through a turn. Pause goes back to the start of the move being played or on to its end, whichever is
+nearer, and that move stays highlighted (Play then repeats it or continues with the next one); the progress bar moves in whole moves too.
+At the end of a loop the animation holds on the loop's last move and then on its first, so the highlight never strays into the next
+algorithm or step. Loops of 1-3 moves and previous/next algorithm or step count from the highlighted move.
+
 The *speed* slider (¼× to 10×, remembered in the browser) sets the playback tempo; the one-rotation pauses around jumps and loops scale with it.
 Moving the loop slider restarts the animation at the start of the new loop.
 

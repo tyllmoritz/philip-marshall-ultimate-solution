@@ -110,9 +110,10 @@ let wantPlay = false; // playback was asked for and has not been stopped yet
 let holding = false; // waiting one rotation before (re)starting
 let holdTimer = null;
 let scope = null; // {s, e}: a series that was clicked and plays on its own (loop off)
-let win = null; // {a, b} in ms: what the current playback loops over or stops at
+let win = null; // {a, b, s, e}: what the current playback loops over or stops at, in ms (a, b) and moves [s, e)
 let dragging = false;
 let pin = null; // {ms, g}: a jump target; at exactly this time the move g is the current one (not the one that just ended)
+let cur = 0; // the move highlighted now (the one playing, or when paused, the one the cube has just done or is about to do)
 const HOLD = 1000; // one rotation of pause before and after jumps (at normal speed)
 const SPEEDS = [0.25, 0.5, 1, 1.5, 2, 3, 4, 6, 10];
 let speed = 1;
@@ -141,6 +142,20 @@ function indexAt(ts) {
   let k = 0;
   while (k < view.moves.length - 1 && ts > view.cum[k + 1] + 1) k++;
   return view.from + k;
+}
+
+/** Global index of the move that plays from ts on: at the end of a move, the next one (indexAt says the one just done). */
+function startAt(ts) {
+  let k = 0;
+  while (k < view.moves.length - 1 && ts >= view.cum[k + 1] - 1) k++;
+  return view.from + k;
+}
+
+/** The move boundary nearest to ts (in ms): a pause or a jump never leaves the cube halfway through a turn. */
+function snapMs(ts) {
+  const k = startAt(ts) - view.from;
+  const a = view.cum[k], b = view.cum[k + 1] ?? a;
+  return ts - a < b - ts ? a : b;
 }
 
 /** Active borders: the step and series being played, and the solution when the whole of it is. */
@@ -266,11 +281,27 @@ function afterHold(fn) {
 }
 
 function onTime(ts) {
+  if (!view) { lastTs = ts; return; }
+  // at the end of the playback window: hold exactly there, the window's last move still highlighted (playback overshoots
+  // by a frame, which would light up the first move after it), then loop back to its start (or stop)
+  if (wantPlay && !holding && win && ts >= win.b - 5) {
+    player.pause();
+    pin = { ms: win.b, g: Math.max(win.s, win.e - 1) };
+    if (loopMode() !== "off") {
+      afterHold(() => {
+        pin = { ms: win.a, g: win.s }; // during the hold before playing again, the first move of the loop is the current one
+        player.timestamp = win.a;
+        afterHold(() => player.play());
+      });
+    } else wantPlay = false;
+    ts = win.b;
+    player.timestamp = ts;
+  }
   lastTs = ts;
-  if (!view) return;
   if (!dragging) $("progress").value = ts;
   clearHighlight();
   const g = pin && Math.abs(ts - pin.ms) < 1 ? pin.g : indexAt(ts);
+  cur = g;
   if (ts > 0 && (view.custom || infoLocked)) {
     // the line above the cubes: the move being played (algorithm shown by a smart cube, step 0, ...)
     const k = g - view.from;
@@ -282,16 +313,6 @@ function onTime(ts) {
     document.querySelector(`.mv[data-i="${g}"]`)?.classList.add("now");
   }
   markActive(g);
-  // at the end of the playback window: pause one rotation, then loop (or stop)
-  if (wantPlay && !holding && win && ts >= win.b - 5) {
-    player.pause();
-    if (loopMode() !== "off") {
-      afterHold(() => {
-        player.timestamp = win.a;
-        afterHold(() => player.play());
-      });
-    } else wantPlay = false;
-  }
 }
 // the highlight, borders and progress bar follow the animation (and the scrubber)
 player.experimentalModel.detailedTimelineInfo.addFreshListener((info) => onTime(info.timestamp));
@@ -370,8 +391,8 @@ function useCustom(setup, moves) {
   if (moves.length) playFrom(0, 0);
 }
 
-/** What a playback loops over / stops at, from the loop mode, the clicked scope and position g. */
-function updateWindow(g = indexAt(lastTs)) {
+/** What a playback loops over / stops at, from the loop mode, the clicked scope and position g (default: the highlighted move). */
+function updateWindow(g = cur) {
   if (!view) return null;
   const mode = loopMode();
   let range = { s: view.from, e: view.to };
@@ -385,12 +406,13 @@ function updateWindow(g = indexAt(lastTs)) {
     while (e < view.to && /^[xyz]/.test(view.moves[e - view.from])) e++;
     range = { s: Math.max(g, view.from), e };
   } else if (mode === "off" && scope) range = scope;
-  win = { a: msOf(range.s), b: msOf(range.e) };
-  return { s: Math.max(range.s, view.from), e: Math.min(range.e, view.to) };
+  const s = Math.max(range.s, view.from), e = Math.min(range.e, view.to);
+  win = { a: msOf(s), b: msOf(e), s, e };
+  return { s, e };
 }
 
-/** Jump there, wait one rotation, then play. */
-function playFrom(ms, g = indexAt(ms)) {
+/** Jump there, wait one rotation, then play (from the move that starts at ms). */
+function playFrom(ms, g = startAt(ms)) {
   pin = { ms, g };
   lastTs = ms;
   updateWindow(g);
@@ -663,6 +685,14 @@ $("playpause").addEventListener("click", () => {
     cancelHold();
     wantPlay = false;
     player.pause();
+    if (isPlaying) {
+      // stop on a whole move: back to the start of the move being played or on to its end, whichever is nearer;
+      // that move stays highlighted (Play then repeats it, or goes on with the next one)
+      const g = startAt(lastTs);
+      lastTs = snapMs(lastTs);
+      pin = { ms: lastTs, g };
+      player.timestamp = lastTs;
+    }
     updatePlayButton();
     return;
   }
@@ -690,11 +720,14 @@ $("loop").addEventListener("input", () => {
 /** Jump to a series or step start; after a jump playback resumes following one rotation of pause. */
 function go(kind, dir) {
   if (!view) return;
-  const list = kind === "algo" ? layout.units : layout.steps;
-  const eps = 1;
+  // counted from the highlighted move (at a boundary the time alone cannot say which side of it we are on);
+  // back goes to the start of the current algorithm or step first, unless we are already there
+  const list = (kind === "algo" ? layout.units : layout.steps).filter((x) => x.e > x.s);
+  let at = -1; // the algorithm or step the highlighted move belongs to (the last one starting at or before it)
+  list.forEach((x, i) => { if (x.s <= cur) at = i; });
   const target = dir > 0
-    ? list.find((x) => msOf(x.s) > lastTs + eps)
-    : [...list].reverse().find((x) => msOf(x.s) < lastTs - eps) ?? list[0];
+    ? list.find((x) => x.s > cur)
+    : at >= 0 && lastTs > msOf(list[at].s) + 1 ? list[at] : list[Math.max(at - 1, 0)];
   if (!target) {
     // nothing further: jump to the end of the solution
     const end = view.cum[view.moves.length];
@@ -727,11 +760,12 @@ $("progress").addEventListener("pointerdown", () => { dragging = true; });
 $("progress").addEventListener("pointerup", () => { dragging = false; });
 $("progress").addEventListener("input", () => {
   if (!view) return;
-  lastTs = +$("progress").value;
+  lastTs = snapMs(+$("progress").value); // whole moves only
   pin = null;
   player.timestamp = lastTs;
-  updateWindow();
+  updateWindow(startAt(lastTs));
 });
+$("progress").addEventListener("change", () => { $("progress").value = lastTs; }); // the thumb settles on the move boundary
 
 const smart = initSmartCube({
   player,
