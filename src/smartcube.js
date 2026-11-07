@@ -548,6 +548,7 @@ export function initSmartCube(api) {
       $("bt-connect").textContent = "Disconnect";
       $("bt-connect").disabled = false;
       status(`Connected${puzzle.name?.() ? ": " + puzzle.name() : ""}.`);
+      api.onConnected?.();
       computePlan();
     } catch (err) {
       $("bt-connect").disabled = false;

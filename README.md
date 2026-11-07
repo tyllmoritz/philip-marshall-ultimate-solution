@@ -87,8 +87,8 @@ The player always holds the full solution; cubing's own controls are hidden in f
 previous/next step, previous/next series, play/pause, a loop slider (off, 1, 2, 3 moves, algo, step, all), and a
 Twizzle link that opens the solution with `//` comments explaining every move. Clicking a series plays just that series,
 clicking a step loops that step, clicking the outer border plays everything, and a second click on a move plays from it.
-After every jump (and before every loop) the animation holds for one rotation. The borders of the solution, step and
-series that are playing are highlighted (hovering uses a lighter shade).
+After every jump (and before every loop) the animation holds for one rotation. The borders of the solution and step that are
+playing are highlighted, and the series being played gets a yellow fill (the edge series chips are already accent blue); hovering uses a lighter shade.
 
 The two series go by their usual names: the Edge Series `F R' F' R` is the *Hedgeslammer* (its inverse `R' F R F'` is the
 *Sledgehammer*), the Corner Series `U R U' L' U R' U' L` is *Niklas*.
@@ -194,7 +194,8 @@ The line above the cubes highlights the move being played, also for step 0 and f
 The line above the cubes is grouped and coloured like the solution list - one chip per part (setup, rotation, series, repair; Hedgeslammer in blue, Niklas in orange, ...);
 turns to take back after a wrong move are a red chip in front.
 
-The loop slider works the same with and without a smart cube (the remaining algorithm or the step 0 list is what it loops over) and starts at `3`.
+The loop slider works the same with and without a smart cube (the remaining algorithm or the step 0 list is what it loops over). It starts at `off`, so a new
+solution plays once; connecting a smart cube switches it to `3` (unless another loop was chosen).
 Clicking a series sets it to `algo`, a step to `step`, the outer border to `all`.
 
 A half turn done as two quarter turns is not a mistake, in either direction: the cube sitting at the first quarter (`L` or `L'` for an expected `L2`) is shown as still on the path.

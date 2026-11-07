@@ -128,7 +128,7 @@ function setLoop(mode) {
   b.dataset.mode = mode;
   b.value = String(LOOPS.indexOf(mode));
 }
-setLoop("3"); // the default: loop three moves
+setLoop("off"); // the default: play the solution once (a smart cube switches to looping, see onConnected)
 
 function clearHighlight() {
   lit = null;
@@ -710,6 +710,10 @@ const smart = initSmartCube({
   async newScramble() {
     $("scramble").value = await newScramble();
     solve();
+  },
+  /** a smart cube was connected: what is left of an algorithm is shown in a loop, so looping is switched on */
+  onConnected() {
+    if (loopMode() === "off") setLoop("3");
   },
   /** a smart cube is connected: the cube shows what is left of the current algorithm, in a loop */
   showRange(from, to) {

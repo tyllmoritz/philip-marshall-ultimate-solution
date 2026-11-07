@@ -23,7 +23,10 @@
         <label for="scramble">Scramble</label>
         <button id="random" type="button">Random scramble</button>
       </div>
-      <textarea id="scramble" rows="3" spellcheck="false" placeholder="e.g. R U R' U' F2 D L2 B' …  (faces U D F B R L, with ' or 2)"></textarea>
+      <textarea id="scramble" rows="3" spellcheck="false" placeholder="e.g. R U R' U' F2 D L2 B' …  (faces U D F B R L, with ' or 2)" aria-describedby="status"></textarea>
+      <div class="row status-row">
+        <span id="status" role="status">Preparing solver…</span>
+      </div>
       <details class="methods-box">
         <summary>Methods &amp; algorithms <span id="method-name" class="hint"></span></summary>
         <div class="method">
@@ -64,9 +67,6 @@
         <ul id="algset-imported" class="algset-imported"></ul>
         <p id="algset-status" class="hint"></p>
       </details>
-      <div class="row">
-        <span id="status" role="status">Preparing solver…</span>
-      </div>
     </section>
 
     <section class="panel player-panel">
@@ -136,8 +136,8 @@
         <span class="chip turns">plain turns</span>
         <span class="chip rotate">cube rotation</span>
       </p>
-      <div id="solution" class="solution" title="Play the full solution">
-        <div class="sol-head">Full solution <span id="total2"></span></div>
+      <div id="solution" class="solution">
+        <div class="sol-head" title="Play the full solution">Full solution <span id="total2"></span></div>
         <ol id="steps"></ol>
       </div>
     </section>

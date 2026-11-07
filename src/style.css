@@ -2,11 +2,12 @@
   --bg: #f6f5f1; --panel: #fff; --ink: #1d1d1b; --muted: #6b6a64; --line: #e2e0d8;
   --alg: #7a3fb0;
   --accent: #1b5e9b; --edge: #1b5e9b; --corner: #b4501a; --setup: #8a8980; --f2l: #2e7d32; --err: #b3261e;
+  --hl: #ffe89a; /* the series being played: a fill, since the edge series chips already wear the accent blue */
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root { --bg: #151514; --panel: #1e1e1c; --ink: #ecebe5; --muted: #a09f97; --line: #343431;
-    --alg: #c49bf0; --accent: #6db0ee; --edge: #6db0ee; --corner: #f0a070; --setup: #8d8c84; --f2l: #6fcf80; --err: #ff8a80; color-scheme: dark; }
+    --alg: #c49bf0; --accent: #6db0ee; --edge: #6db0ee; --corner: #f0a070; --setup: #8d8c84; --f2l: #6fcf80; --err: #ff8a80; --hl: #4d4112; color-scheme: dark; }
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 system-ui, sans-serif; padding-inline: clamp(12px, 3vw, 32px); }
@@ -29,6 +30,7 @@ button:disabled { opacity: .5; cursor: default; }
 button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
 @media (prefers-color-scheme: dark) { button.primary { color: #0b1d2e; } }
 #status { color: var(--muted); font-size: .92rem; }
+.status-row { margin-top: 4px; }
 #status.error { color: var(--err); }
 .player-panel { display: grid; justify-items: center; }
 .player-panel > * { max-width: 100%; }
@@ -81,8 +83,8 @@ code { font: 14px ui-monospace, monospace; overflow-wrap: anywhere; }
 /* hover: lighter; active (what is playing): full accent */
 .step.hot, .solution.hot { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 40%, var(--line)); }
 .step.active, .solution.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
-.unit.hot .chip { box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 40%, var(--line)); border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
-.unit.active .chip { box-shadow: 0 0 0 1px var(--accent); border-color: var(--accent); }
+.unit.hot .chip { background: color-mix(in srgb, var(--hl) 45%, transparent); }
+.unit.active .chip { background: var(--hl); box-shadow: 0 0 0 1px currentColor; }
 .controls { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: center; margin-top: 10px; }
 .controls button { width: 40px; height: 40px; min-width: 0; padding: 0; display: inline-grid; place-items: center; border-radius: 50%; }
 .controls button .ico { width: 20px; height: 20px; }
