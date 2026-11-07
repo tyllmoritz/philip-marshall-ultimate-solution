@@ -10,11 +10,23 @@
   <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
   <link rel="stylesheet" href="/src/style.css" />
+  <script>
+    // If the app has not started after 15 s (an offline copy of the page whose scripts are gone), drop the offline cache and
+    // load the page again from the server. Once per tab, so a slow connection cannot cause a reload loop, and only online
+    // (offline the cache is all there is).
+    setTimeout(function () {
+      if (window.marshallStarted || !navigator.onLine) return;
+      try { if (sessionStorage.getItem("marshall-repaired")) return; sessionStorage.setItem("marshall-repaired", "1"); } catch (e) { return; }
+      var sw = navigator.serviceWorker ? navigator.serviceWorker.getRegistrations().then(function (rs) { return Promise.all(rs.map(function (r) { return r.unregister(); })); }) : null;
+      var cache = window.caches ? caches.keys().then(function (ks) { return Promise.all(ks.filter(function (k) { return k.indexOf("marshall-") === 0; }).map(function (k) { return caches.delete(k); })); }) : null;
+      Promise.all([sw, cache]).then(function () { location.reload(); }, function () { location.reload(); });
+    }, 15000);
+  </script>
 </head>
 <body>
   <header>
     <h1>Marshall Solver</h1>
-    <p class="sub">Solve a Rubik's Cube step by step: Philip Marshall's method, CFOP, ZZ, Roux or layer by layer. <button id="install" type="button" class="link" hidden>Install as an app</button></p>
+    <p class="sub">Solve a Rubik's Cube step by step: Philip Marshall's method, CFOP, ZZ, Roux or layer by layer. <button id="install" type="button" class="link" hidden>Install as an app</button> <button id="update" type="button" class="link" hidden>New version: reload</button></p>
   </header>
 
   <main>

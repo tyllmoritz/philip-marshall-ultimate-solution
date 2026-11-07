@@ -234,8 +234,14 @@ Rotations after the last move are dropped: a solved cube can be put down any way
 ## Install and offline (PWA)
 
 The page has a web app manifest and icons, so browsers offer *Install as an app* (there is a link under the title when the browser allows it), and a service worker
-(`sw.js`, written by `vite.config.js` at build time) that precaches every file of the build and serves from the cache first - after the first visit the solver, the cubes and the
-scrambler work without a network (Bluetooth needs none). A new build gets a new cache name, so updates arrive on the next load. Icons: `public/icons/icon.svg` (source) and PNGs rendered from it.
+(`sw.js`, written by `vite.config.js` at build time) that precaches every file of the build. After the first visit everything works without a network: the solver, the cubes,
+the scrambler, every method and every bundled algorithm set (Bluetooth needs none). Icons: `public/icons/icon.svg` (source) and PNGs rendered from it.
+
+Updates: the cache name is a hash of the contents of all files, so any change makes a new one. The page itself is loaded from the server whenever there is a
+network (scripts, icons and algorithm sets come from the cache), so it always matches the scripts on the server; the install fetches past the browser's HTTP
+cache, since GitHub Pages lets browsers keep files for 10 minutes and an old `index.html` stored next to new scripts would be a page whose scripts are gone.
+When a new version takes over an open page, the page reloads at once if it was opened in the last 10 seconds and otherwise shows *New version: reload*.
+As a last resort, a small script in `index.html` clears the offline cache and reloads once if the app has not started 15 seconds after loading (only online).
 
 ## Reading algorithm sets (Tao Yu's Alg Trainer)
 

@@ -6,6 +6,8 @@ import { initMethods } from "./methods-ui.js";
 import { initAlgsets } from "./algsets.js";
 import { neededKinds, errorText } from "./engine/presets.js";
 
+window.marshallStarted = true; // the scripts loaded: the repair in index.html is not needed
+const startedAt = Date.now();
 const $ = (id) => document.getElementById(id);
 const MOVE = /^[UDFBRL][2']?$/;
 
@@ -829,9 +831,18 @@ show(parseScramble($("scramble").value), []);
 newScramble().then((text) => {
   if (!current) { $("scramble").value = text; solve(); }
 });
+  const hadController = !!navigator.serviceWorker.controller;
 // solve the first scramble once a worker is ready
 if (!current) {
+  // a new version took over: this page's scripts may be gone from the cache and the server (the solver workers are started
+  // again on every new solve), so load the page again - at once if it has only just opened, else when the user is ready
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (!hadController) return; // the first install, nothing changed
+    if (Date.now() - startedAt < 10000) location.reload();
+    else $("update").hidden = false;
+  });
   setStatus("Preparing solver…");
+$("update").addEventListener("click", () => location.reload());
 }
 
 // a click anywhere that is not a move drops the selection
