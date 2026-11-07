@@ -89,7 +89,20 @@ function genericCheck(scr, r) {
   return solvedMask(f) === (1 << 20) - 1 ? null : "the last step does not leave the cube solved";
 }
 const n = +process.argv[2] || 20;
-const mode = process.argv[3] ?? "";
+const mode = process.argv[3]?.startsWith("seed=") ? "" : process.argv[3] ?? "";
+// scrambles come from a seeded generator so a failure can be replayed: seed=<n> (default 1), seed=random for a fresh one
+const seedArg = process.argv.find((a) => a.startsWith("seed="))?.slice(5) ?? "1";
+const seed = seedArg === "random" ? (Math.random() * 2 ** 32) >>> 0 : +seedArg >>> 0;
+const random = ((a) => () => { // mulberry32
+  a = (a + 0x6d2b79f5) >>> 0;
+  let t = Math.imul(a ^ (a >>> 15), 1 | a);
+  t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+})(seed);
+// scrambles that once failed, solved before the random ones
+const REGRESSIONS = {
+  roux: ["D' F' R D2 R' B' R' L D2 U D U' D' U D B L' B L2 R D2 R' F' D B2 F2 D F B2 F2"], // second block beyond the search's node limit
+};
 const presetId = /^preset=(.+)$/.exec(mode)?.[1] ?? null;
 const preset = presetId ? BUILT_IN_PRESETS.find((p) => p.id === presetId) : null;
 if (presetId && !preset) { console.log("unknown preset", presetId); process.exit(1); }
@@ -101,10 +114,12 @@ const lastLayer = mode.includes("layer");
 let f2lUsed = 0;
 const totals = [];
 let fail = 0;
-for (let i = 0; i < n; i++) {
-  const scr = [];
+console.log("seed", seed);
+const fixed = (REGRESSIONS[presetId] ?? []).map((s) => s.split(" "));
+for (let i = 0; i < fixed.length + n; i++) {
+  const scr = fixed[i] ?? [];
   let last = "";
-  for (let j = 0; j < 30; j++) { let f; do f = FACES[(Math.random() * 6) | 0]; while (f === last); last = f; scr.push(f + ["", "2", "'"][(Math.random() * 3) | 0]); }
+  if (!fixed[i]) for (let j = 0; j < 30; j++) { let f; do f = FACES[(random() * 6) | 0]; while (f === last); last = f; scr.push(f + ["", "2", "'"][(random() * 3) | 0]); }
   t = performance.now();
   const r = solver.solve(scr, { f2l, yellowTop, beginner, openSlot, lastLayer, ...(preset ? { steps: preset.steps } : {}), algsets });
   const dt = performance.now() - t;
@@ -122,4 +137,4 @@ for (let i = 0; i < n; i++) {
 }
 if (f2l) console.log("f2l applied", f2lUsed, "of", totals.length);
 console.log("avg", totals.reduce((a, b) => a + b, 0) / totals.length, "fail", fail);
-if (fail) process.exit(1);
+if (fail) { console.log(`replay: node scripts/test.mjs ${n} ${mode} seed=${seed}`); process.exit(1); }

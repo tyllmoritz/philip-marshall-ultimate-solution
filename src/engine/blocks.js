@@ -55,7 +55,29 @@ function pdb(solver, kind, ids, moves) {
   return table;
 }
 
-const pieceHome = (f, edges, corners) => {
+const AXIS = { U: "y", D: "y", u: "y", d: "y", E: "y", R: "x", L: "x", r: "x", l: "x", M: "x", F: "z", B: "z", f: "z", b: "z", S: "z" };
+const AXIS_ORDER = "UDuEdRLrMlFBfSb";
+// the three layers of an axis that each letter turns (wide = face + slice)
+const LAYERS = { U: [1, 0, 0], D: [0, 1, 0], E: [0, 0, 1], u: [1, 0, 1], d: [0, 1, 1], R: [1, 0, 0], L: [0, 1, 0], M: [0, 0, 1], r: [1, 0, 1], l: [0, 1, 1], F: [1, 0, 0], B: [0, 1, 0], S: [0, 0, 1], f: [1, 0, 1], b: [0, 1, 1] };
+/** Per axis: how many independent layers the moves can turn (the longest useful run of turns about that axis). */
+function axisCaps(moves) {
+  const caps = {};
+  for (const ax of ["x", "y", "z"]) {
+    const rows = [...new Set(moves.filter((m) => AXIS[m[0]] === ax).map((m) => m[0]))].map((c) => [...LAYERS[c]]);
+    let rank = 0;
+    for (let col = 0; col < 3 && rank < rows.length; col++) {
+      const p = rows.findIndex((r, i) => i >= rank && r[col]);
+      if (p < 0) continue;
+      [rows[rank], rows[p]] = [rows[p], rows[rank]];
+      for (let i = 0; i < rows.length; i++) if (i !== rank && rows[i][col]) rows[i] = rows[i].map((v, k) => v - rows[i][col] / rows[rank][col] * rows[rank][k]);
+      rank++;
+    }
+    caps[ax] = rank;
+  }
+  return caps;
+}
+
+const pieceHome =(f, edges, corners) => {
   for (const e of edges) if (f[e] !== e || f[12 + e] !== 0) return false;
   for (const c of corners) if (f[24 + c] !== c || f[32 + c] !== 0) return false;
   return true;
@@ -74,27 +96,31 @@ export function blockSearch(solver, start, { edges, corners, keepEdges = [], kee
   const h = (f) => { let m = 0; for (const g of groups) { const d = g.dist(f); if (d > m) m = d; } return m; };
   const flats = moves.map((m) => solver.flatMoves[m] ?? solver.extraFlat[m]);
   const buffers = Array.from({ length: maxDepth + 2 }, () => new Uint8Array(N));
-  const opposite = { U: "D", D: "U", F: "B", B: "F", R: "L", L: "R" };
+  // turns about one axis commute, and any run of them is a combination of independent layers (R, r, M: R^a M^b),
+  // so a run is written in a fixed order of distinct letters and is no longer than the number of independent layers
+  const axis = moves.map((m) => AXIS[m[0]]);
+  const rank = moves.map((m) => AXIS_ORDER.indexOf(m[0]));
+  const cap = axisCaps(moves);
   let nodes = 0;
   const found = [];
   const path = [];
-  const dfs = (f, left, last) => {
+  const dfs = (f, left, last, run) => {
     if (++nodes > nodeLimit) return;
     if (left === 0) { if (pieceHome(f, all.edges, all.corners)) found.push([...path]); return; }
     if (h(f) > left) return;
     for (let i = 0; i < moves.length; i++) {
-      const m = moves[i];
-      if (last && (last[0] === m[0] || (opposite[last[0]] === m[0] && last[0] > m[0]))) continue;
+      const same = last >= 0 && axis[last] === axis[i];
+      if (same && (rank[i] <= rank[last] || run >= cap[axis[i]])) continue;
       const buf = buffers[left];
       compose(f, flats[i], buf);
-      path.push(m);
-      dfs(buf, left - 1, m);
+      path.push(moves[i]);
+      dfs(buf, left - 1, i, same ? run + 1 : 1);
       path.pop();
       if (found.length >= limit || nodes > nodeLimit) return;
     }
   };
   for (let depth = h(start); depth <= maxDepth; depth++) {
-    dfs(start, depth, null);
+    dfs(start, depth, -1, 0);
     if (found.length || nodes > nodeLimit) break;
   }
   return found;
