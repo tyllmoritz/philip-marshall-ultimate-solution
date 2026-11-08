@@ -321,8 +321,16 @@ export function initSmartCube(api) {
         const base = api.unitInfo(algIndex);
         if (inside) {
           lastOn = { g };
-          info = { ...base, groups: api.unitGroups(algIndex, g), done: g === u.e };
-          range = { from: g, to: u.e };
+          // whole-cube rotations right before the next turn are still to be done (the cube cannot report them, so its
+          // state already matches the index after them): the algorithm is shown with them, and the cube turns first.
+          // At the start of an algorithm that includes the rotations the one before ended with (the turn back after F2L).
+          let from = g;
+          const sol = solution();
+          const started = sol.slice(u.s, g).some((m) => !isRotation(m));
+          if (g < u.e) while (from > (started ? u.s : 0) && isRotation(sol[from - 1])) from--;
+          const before = sol.slice(from, Math.max(from, u.s));
+          info = { ...base, groups: [...(before.length ? [{ kind: "rotate", moves: before }] : []), ...api.unitGroups(algIndex, from)], done: g === u.e };
+          range = { from, to: u.e };
         } else {
           // off the path: first take the wrong turns back (unless they were just another way to a state on the path,
           // which the state comparison above has already recognised), then carry on from where the cube left it
